@@ -2,7 +2,7 @@
 #include "Keymatrix.h"
 #include "SerialLCD.h"
 #include "Statemachine.h"
-#include "GPIOBank.h"
+#include "Plants.h"
 
 //#define DEBUG_WAIT_FOR_SERIAL_CONN
 
@@ -14,11 +14,10 @@ SerialLCD lcd(9);
 Keymatrix keys(4, 3);
 int keymatrix_pins[4 + 3] = { 5, 6, 7, 8, 2, 3, 4 };
 
-GPIOBank valves(5);
-int valve_pins[5] = { 9, 10, 11, 12, 13 };
-
-GPIOBank pumps(3);
-int pump_pins[5] = { 14, 15, 16 };
+Plants plants(5, 3, 2);
+int valve_pins[5] = { 10, 11, 12, 13, 14 };
+int pump_pins[3] = { 15, 16, 17 };
+int switch_pins[2] = { 18, 19 };
 
 #define DISPLAY_BACKLIGHT_TIMEOUT (5UL * 60UL * 1000UL)
 unsigned long last_input_time = 0;
@@ -115,12 +114,9 @@ void setup() {
     Serial.println("Initializing Giess-o-mat");
     
     keys.setPins(keymatrix_pins);
-    
-    valves.setPinNumbers(valve_pins);
-    valves.setOutput();
-    
-    pumps.setPinNumbers(pump_pins);
-    pumps.setOutput();
+    plants.setValvePins(valve_pins);
+    plants.setPumpPins(pump_pins);
+    plants.setSwitchPins(switch_pins, true);
 
     Serial.println("Setting up LCD, please wait");
     delay(1000); // give LCD some time to boot

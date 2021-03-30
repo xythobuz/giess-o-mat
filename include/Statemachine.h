@@ -1,6 +1,8 @@
 #ifndef _STATEMACHINE_H_
 #define _STATEMACHINE_H_
 
+#include <Arduino.h>
+
 class Statemachine {
 public:
     enum States {
@@ -22,7 +24,9 @@ public:
         menu_valves_time, // set runtime
         menu_valves_go, // running
         menu_valves_running,
-        menu_valves_done
+        menu_valves_done,
+        
+        error
     };
     
     class DigitBuffer {
@@ -61,12 +65,14 @@ private:
     uint32_t number_input(void);
     
     DigitBuffer db;
-    States state;
+    States state, old_state;
     print_fn print;
     backspace_fn backspace;
     
     uint32_t selected_id; // pump or valve id
     uint32_t selected_time; // runtime
+    unsigned long start_time, stop_time, last_animation_time;
+    String error_condition;
 };
 
 #endif // _STATEMACHINE_H_

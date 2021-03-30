@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include "Plants.h"
 #include "Statemachine.h"
 
 Statemachine::DigitBuffer::DigitBuffer(int _size) {
@@ -53,11 +53,16 @@ uint32_t Statemachine::DigitBuffer::getNumber(void) {
 Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
         : db(7) {
     state = init;
+    old_state = init;
     print = _print;
     backspace = _backspace;
     
     selected_id = 0;
     selected_time = 0;
+    start_time = 0;
+    stop_time = 0;
+    last_animation_time = 0;
+    error_condition = "";
 }
 
 void Statemachine::begin(void) {
@@ -78,15 +83,7 @@ void Statemachine::input(int n) {
             switch_to(init);
         }
     } else if (state == menu_auto) {
-        if ((n == -1) || (n == -2)) {
-            switch_to(menu);
-        } else if (n == 1) {
-            // water only
-            
-        } else if (n == 2) {
-            // with fertilizer
-            
-        }
+        switch_to(menu);
     } else if (state == menu_auto_mode) {
         switch_to(menu);
     } else if (state == menu_auto_go) {
@@ -108,8 +105,12 @@ void Statemachine::input(int n) {
             
             selected_id = number_input();
             
-            // TODO validate
-            switch_to(menu_pumps_time);
+            if ((selected_id <= 0) || (selected_id > plants.countFertilizers())) {
+                error_condition = "Invalid pump ID!";
+                switch_to(error);
+            } else {
+                switch_to(menu_pumps_time);
+            }
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
@@ -132,8 +133,12 @@ void Statemachine::input(int n) {
             
             selected_time = number_input();
             
-            // TODO validate
-            switch_to(menu_pumps_go);
+            if ((selected_time <= 0) || (selected_time > 120)) {
+                error_condition = "Invalid time range!";
+                switch_to(error);
+            } else {
+                switch_to(menu_pumps_go);
+            }
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
@@ -142,9 +147,29 @@ void Statemachine::input(int n) {
             }
         }
     } else if (state == menu_pumps_go) {
-        switch_to(menu);
+        if (n == -2) {
+            start_time = millis();
+            last_animation_time = start_time;
+            
+            auto wl = plants.getWaterlevel();
+            if ((wl != Plants::full) && (wl != Plants::invalid)) {
+                plants.startFertilizer(selected_id - 1);
+                switch_to(menu_pumps_running);
+            } else if (wl == Plants::full) {
+                stop_time = millis();
+                switch_to(menu_pumps_done);
+            } else if (wl == Plants::invalid) {
+                error_condition = "Invalid sensor state";
+                state = menu_pumps;
+                switch_to(error);
+            }
+        } else {
+            switch_to(menu_pumps_time);
+        }
     } else if (state == menu_pumps_running) {
-        switch_to(menu);
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_pumps_done);
     } else if (state == menu_pumps_done) {
         switch_to(menu);
     } else if (state == menu_valves) {
@@ -162,8 +187,12 @@ void Statemachine::input(int n) {
             
             selected_id = number_input();
             
-            // TODO validate
-            switch_to(menu_valves_time);
+            if ((selected_id <= 0) || (selected_id > (plants.countPlants() + 1))) {
+                error_condition = "Invalid valve ID!";
+                switch_to(error);
+            } else {
+                switch_to(menu_valves_time);
+            }
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
@@ -186,8 +215,12 @@ void Statemachine::input(int n) {
             
             selected_time = number_input();
             
-            // TODO validate
-            switch_to(menu_valves_go);
+            if ((selected_time <= 0) || (selected_time > 120)) {
+                error_condition = "Invalid time range!";
+                switch_to(error);
+            } else {
+                switch_to(menu_valves_go);
+            }
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
@@ -196,11 +229,42 @@ void Statemachine::input(int n) {
             }
         }
     } else if (state == menu_valves_go) {
-        switch_to(menu);
+        if (n == -2) {
+            start_time = millis();
+            last_animation_time = start_time;
+            
+            auto wl = plants.getWaterlevel();
+            if ((wl != Plants::full) && (wl != Plants::invalid)) {
+                if (selected_id >= (plants.countPlants() + 1)) {
+                    plants.openWaterInlet();
+                } else {
+                    plants.startPlant(selected_id - 1);
+                }
+                
+                switch_to(menu_valves_running);
+            } else if (wl == Plants::full) {
+                stop_time = millis();
+                switch_to(menu_valves_done);
+            } else if (wl == Plants::invalid) {
+                error_condition = "Invalid sensor state";
+                state = menu_valves;
+                switch_to(error);
+            }
+        } else {
+            switch_to(menu_valves_time);
+        }
     } else if (state == menu_valves_running) {
-        switch_to(menu);
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_valves_done);
     } else if (state == menu_valves_done) {
         switch_to(menu);
+    } else if (state == error) {
+        if (old_state != error) {
+            switch_to(old_state);
+        } else {
+            switch_to(menu);
+        }
     }
 }
 
@@ -219,10 +283,41 @@ uint32_t Statemachine::number_input(void) {
 }
 
 void Statemachine::act(void) {
+    if ((state == menu_pumps_running) || (state == menu_valves_running)) {
+        unsigned long runtime = millis() - start_time;
+        if ((runtime / 1000UL) >= selected_time) {
+            // stop if timeout has been reached
+            plants.abort();
+            stop_time = millis();
+            switch_to((state == menu_pumps_running) ? menu_pumps_done : menu_valves_done);
+        } else if ((millis() - last_animation_time) >= 500) {
+            // update animation if needed
+            last_animation_time = millis();
+            switch_to(state);
+        }
+    }
     
+    if ((state == menu_pumps_running) || ((state == menu_valves_running) && (selected_id == (plants.countPlants() + 1)))) {
+        // check water level state
+        auto wl = plants.getWaterlevel();
+        if (wl == Plants::full) {
+            plants.abort();
+            stop_time = millis();
+            switch_to((state == menu_pumps_running) ? menu_pumps_done : menu_valves_done);
+        } else if (wl == Plants::invalid) {
+            plants.abort();
+            error_condition = "Invalid sensor state";
+            state = (state == menu_pumps_running) ? menu_pumps : menu_valves;
+            switch_to(error);
+        }
+    }
 }
 
 void Statemachine::switch_to(States s) {
+    if (s == error) {
+        old_state = state;
+    }
+    
     state = s;
     
     if (s == init) {
@@ -239,87 +334,129 @@ void Statemachine::switch_to(States s) {
               -1);
     } else if (s == menu_auto) {
         print("------- Auto -------",
-              "1: Water only",
-              "2: With fertilizer",
+              "",
+              "TODO not implemented",
               "",
               -1);
     } else if (s == menu_auto_mode) {
-        print("",
+        print("menu_auto_mode",
               "",
-              "",
+              "TODO not implemented",
               "",
               -1);
     } else if (s == menu_auto_go) {
-        print("",
+        print("menu_auto_go",
               "",
-              "",
+              "TODO not implemented",
               "",
               -1);
     } else if (s == menu_auto_done) {
-        print("",
+        print("menu_auto_done",
               "",
-              "",
+              "TODO not implemented",
               "",
               -1);
     } else if (s == menu_pumps) {
+        String a = String("(Input 1 to ") + String(plants.countFertilizers()) + String(")");
+        
         print("------- Pump -------",
               "Please select pump",
-              "(Input 1 to 3)",
+              a.c_str(),
               "Pump: ",
               3);
     } else if (s == menu_pumps_time) {
-        print("------ Pump X ------",
+        String header = String("------ Pump ") + String(selected_id) + String(" ------");
+        
+        print(header.c_str(),
               "Please set runtime",
               "(Input in seconds)",
               "Runtime: ",
               3);
     } else if (s == menu_pumps_go) {
-        print("",
-              "",
-              "",
-              "",
+        String a = String("Pump No. ") + String(selected_id);
+        String b = String("Runtime ") + String(selected_time) + String('s');
+        
+        print("----- Confirm? -----",
+              a.c_str(),
+              b.c_str(),
+              "           # Confirm",
               -1);
     } else if (s == menu_pumps_running) {
-        print("",
-              "",
-              "",
-              "",
+        unsigned long runtime = millis() - start_time;
+        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        
+        unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
+        String b;
+        for (unsigned long i = 0; i < anim; i++) {
+            b += '#';
+        }
+        
+        print("---- Dispensing ----",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
               -1);
     } else if (s == menu_pumps_done) {
-        print("",
-              "",
-              "",
-              "",
+        String a = String("after ") + String((stop_time - start_time) / 1000UL) + String("s.");
+        
+        print("------- Done -------",
+              "Dispensing finished",
+              a.c_str(),
+              "Hit any key for menu",
               -1);
     } else if (s == menu_valves) {
+        String a = String("(Input 1 to ") + String(plants.countPlants() + 1) + String(")");
+        
         print("------ Valves ------",
               "Please select valve",
-              "(Input 1 to 5)",
+              a.c_str(),
               "Valve: ",
               3);
     } else if (s == menu_valves_time) {
-        print("----- Valve XX -----",
+        String header = String("----- Valve  ") + String(selected_id) + String(" -----");
+        
+        print(header.c_str(),
               "Please set runtime",
               "(Input in seconds)",
               "Runtime: ",
               3);
     } else if (s == menu_valves_go) {
-        print("",
-              "",
-              "",
-              "",
+        String a = String("Valve No. ") + String(selected_id);
+        String b = String("Runtime ") + String(selected_time) + String('s');
+        
+        print("----- Confirm? -----",
+              a.c_str(),
+              b.c_str(),
+              "           # Confirm",
               -1);
     } else if (s == menu_valves_running) {
-        print("",
-              "",
-              "",
-              "",
+        unsigned long runtime = millis() - start_time;
+        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        
+        unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
+        String b;
+        for (unsigned long i = 0; i <= anim; i++) {
+            b += '#';
+        }
+        
+        print("---- Dispensing ----",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
               -1);
     } else if (s == menu_valves_done) {
-        print("",
-              "",
-              "",
-              "",
+        String a = String("after ") + String((stop_time - start_time) / 1000UL) + String("s.");
+        
+        print("------- Done -------",
+              "Dispensing finished",
+              a.c_str(),
+              "Hit any key for menu",
+              -1);
+    } else if (s == error) {
+        print("------ Error! ------",
+              "There is a problem:",
+              error_condition.c_str(),
+              "    Press any key...",
               -1);
     }
 }

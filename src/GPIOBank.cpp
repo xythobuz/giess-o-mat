@@ -42,6 +42,12 @@ void GPIOBank::setPin(int n, bool state) {
     }
 }
 
+void GPIOBank::setAll(bool state) {
+    for (int i = 0; i < size; i++) {
+        setPin(i, state);
+    }
+}
+
 bool GPIOBank::getPin(int n) {
     if ((n >= 0) && (n < size)) {
         return digitalRead(pins[n]);

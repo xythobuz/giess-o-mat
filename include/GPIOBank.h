@@ -12,6 +12,7 @@ public:
     
     int getSize(void);
     void setPin(int n, bool state);
+    void setAll(bool state);
     bool getPin(int n);
     
 private:
