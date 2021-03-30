@@ -9,9 +9,12 @@ public:
         init,
         menu, // auto, pumps, valves
         
-        menu_auto, // select plant
-        menu_auto_mode, // select mode
-        menu_auto_go, // running
+        menu_auto, // select mode
+        menu_auto_fertilizer, // select fertilizer
+        menu_auto_fertilizer_running,
+        menu_auto_reservoir_running,
+        menu_auto_plant, // select plant
+        menu_auto_plant_running,
         menu_auto_done,
         
         menu_pumps, // selet pump

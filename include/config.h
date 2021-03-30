@@ -1,0 +1,17 @@
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
+
+//#define DEBUG_WAIT_FOR_SERIAL_CONN
+
+#define DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
+#define DEBUG_ENABLE_KEYPAD_INPUT_ON_SERIAL
+
+// in milliseconds
+#define DISPLAY_BACKLIGHT_TIMEOUT (5UL * 60UL * 1000UL)
+
+// in seconds
+#define MAX_TANK_FILL_TIME 10
+#define AUTO_PUMP_RUNTIME 5
+#define MAX_AUTO_PLANT_RUNTIME 15
+
+#endif // _CONFIG_H_

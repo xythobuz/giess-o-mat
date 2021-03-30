@@ -47,10 +47,12 @@ Plants::Waterlevel Plants::getWaterlevel(void) {
 }
 
 void Plants::openWaterInlet(void) {
+    Serial.println("Plants::openWaterInlet");
     valves.setPin(countPlants(), true);
 }
 
 void Plants::closeWaterInlet(void) {
+    Serial.println("Plants::closeWaterInlet");
     valves.setPin(countPlants(), false);
 }
 
@@ -59,12 +61,18 @@ int Plants::countFertilizers(void) {
 }
 
 void Plants::startFertilizer(int id) {
+    Serial.print("Plants::startFertilizer ");
+    Serial.println(id);
+    
     if ((id >= 0) && (id < countFertilizers())) {
         pumps.setPin(id, true);
     }
 }
 
 void Plants::stopFertilizer(int id) {
+    Serial.print("Plants::stopFertilizer ");
+    Serial.println(id);
+    
     if ((id >= 0) && (id < countFertilizers())) {
         pumps.setPin(id, false);
     }
@@ -81,12 +89,18 @@ int Plants::countPlants(void) {
 }
 
 void Plants::startPlant(int id) {
+    Serial.print("Plants::startPlant ");
+    Serial.println(id);
+    
     if ((id >= 0) && (id < countPlants())) {
         valves.setPin(id, true);
     }
 }
 
 void Plants::stopPlant(int id) {
+    Serial.print("Plants::stopPlant ");
+    Serial.println(id);
+    
     if ((id >= 0) && (id < countPlants())) {
         valves.setPin(id, false);
     }

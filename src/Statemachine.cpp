@@ -1,5 +1,6 @@
 #include "Plants.h"
 #include "Statemachine.h"
+#include "config.h"
 
 Statemachine::DigitBuffer::DigitBuffer(int _size) {
     size = _size;
@@ -83,13 +84,104 @@ void Statemachine::input(int n) {
             switch_to(init);
         }
     } else if (state == menu_auto) {
-        switch_to(menu);
-    } else if (state == menu_auto_mode) {
-        switch_to(menu);
-    } else if (state == menu_auto_go) {
-        switch_to(menu);
+        if (n == 1) {
+            switch_to(menu_auto_fertilizer);
+        } else if (n == 2) {
+            auto wl = plants.getWaterlevel();
+            if ((wl != Plants::full) && (wl != Plants::invalid)) {
+                plants.openWaterInlet();
+                selected_id = plants.countPlants() + 1;
+                selected_time = MAX_TANK_FILL_TIME;
+                start_time = millis();
+                switch_to(menu_auto_reservoir_running);
+            } else if (wl == Plants::full) {
+                stop_time = millis();
+                switch_to(menu_auto);
+            } else if (wl == Plants::invalid) {
+                error_condition = "Invalid sensor state";
+                state = menu_auto;
+                switch_to(error);
+            }
+        } else if (n == 3) {
+            switch_to(menu_auto_plant);
+        } else if ((n == -1) || (n == -2)) {
+            switch_to(menu);
+        }
+    } else if (state == menu_auto_fertilizer) {
+        if ((n >= 1) && (n <= 3)) {
+            auto wl = plants.getWaterlevel();
+            if ((wl != Plants::full) && (wl != Plants::invalid)) {
+                plants.startFertilizer(n - 1);
+                selected_id = n;
+                selected_time = AUTO_PUMP_RUNTIME;
+                start_time = millis();
+                switch_to(menu_auto_fertilizer_running);
+            } else if (wl == Plants::full) {
+                stop_time = millis();
+                switch_to(menu_auto);
+            } else if (wl == Plants::invalid) {
+                error_condition = "Invalid sensor state";
+                state = menu_auto;
+                switch_to(error);
+            }
+        } else if ((n == -1) || (n == -2)) {
+            switch_to(menu_auto);
+        }
+    } else if (state == menu_auto_fertilizer_running) {
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_auto_done);
+    } else if (state == menu_auto_reservoir_running) {
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_auto_done);
+    } else if (state == menu_auto_plant) {
+        if (n == -1) {
+            if (db.hasDigits()) {
+                backspace();
+                db.removeDigit();
+            } else {
+                switch_to(menu_auto);
+            }
+        } else if (n == -2) {
+            if (!db.hasDigits()) {
+                return;
+            }
+            
+            selected_id = number_input();
+            
+            if ((selected_id <= 0) || (selected_id > plants.countPlants())) {
+                error_condition = "Invalid plant ID!";
+                switch_to(error);
+            } else {
+                auto wl = plants.getWaterlevel();
+                if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+                    plants.startPlant(selected_id - 1);
+                    selected_time = MAX_AUTO_PLANT_RUNTIME;
+                    start_time = millis();
+                    switch_to(menu_auto_plant_running);
+                } else if (wl == Plants::empty) {
+                    stop_time = millis();
+                    switch_to(menu_auto);
+                } else if (wl == Plants::invalid) {
+                    error_condition = "Invalid sensor state";
+                    state = menu_auto;
+                    switch_to(error);
+                }
+            }
+        } else {
+            if (db.spaceLeft()) {
+                db.addDigit(n);
+            } else {
+                backspace();
+            }
+        }
+    } else if (state == menu_auto_plant_running) {
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_auto_done);
     } else if (state == menu_auto_done) {
-        switch_to(menu);
+        switch_to(menu_auto);
     } else if (state == menu_pumps) {
         if (n == -1) {
             if (db.hasDigits()) {
@@ -311,13 +403,64 @@ void Statemachine::act(void) {
             switch_to(error);
         }
     }
+    
+    if ((state == menu_auto_fertilizer_running) || (state == menu_auto_reservoir_running)) {
+        unsigned long runtime = millis() - start_time;
+        if ((runtime / 1000UL) >= selected_time) {
+            // stop if timeout has been reached
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_auto_done);
+        } else if ((millis() - last_animation_time) >= 500) {
+            // update animation if needed
+            last_animation_time = millis();
+            switch_to(state);
+        }
+        
+        // check water level state
+        auto wl = plants.getWaterlevel();
+        if (wl == Plants::full) {
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_auto_done);
+        } else if (wl == Plants::invalid) {
+            plants.abort();
+            error_condition = "Invalid sensor state";
+            state = menu_auto;
+            switch_to(error);
+        }
+    }
+        
+    if (state == menu_auto_plant_running) {
+        unsigned long runtime = millis() - start_time;
+        if ((runtime / 1000UL) >= selected_time) {
+            // stop if timeout has been reached
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_auto_done);
+        } else if ((millis() - last_animation_time) >= 500) {
+            // update animation if needed
+            last_animation_time = millis();
+            switch_to(state);
+        }
+        
+        // check water level state
+        auto wl = plants.getWaterlevel();
+        if (wl == Plants::empty) {
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_auto_done);
+        } else if (wl == Plants::invalid) {
+            plants.abort();
+            error_condition = "Invalid sensor state";
+            state = menu_auto;
+            switch_to(error);
+        }
+    }
 }
 
 void Statemachine::switch_to(States s) {
-    if (s == error) {
-        old_state = state;
-    }
-    
+    old_state = state;
     state = s;
     
     if (s == init) {
@@ -334,27 +477,76 @@ void Statemachine::switch_to(States s) {
               -1);
     } else if (s == menu_auto) {
         print("------- Auto -------",
-              "",
-              "TODO not implemented",
-              "",
+              "1: Add Fertilizer",
+              "2: Fill Reservoir",
+              "3: Water a plant",
               -1);
-    } else if (s == menu_auto_mode) {
-        print("menu_auto_mode",
-              "",
-              "TODO not implemented",
-              "",
+    } else if (s == menu_auto_fertilizer) {
+        print("---- Fertilizer ----",
+              "1: Vegetation Phase",
+              "2: Bloom Phase",
+              "3: Special",
               -1);
-    } else if (s == menu_auto_go) {
-        print("menu_auto_go",
-              "",
-              "TODO not implemented",
-              "",
+    } else if (s == menu_auto_fertilizer_running) {
+        unsigned long runtime = millis() - start_time;
+        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        
+        unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
+        String b;
+        for (unsigned long i = 0; i < anim; i++) {
+            b += '#';
+        }
+        
+        print("---- Dispensing ----",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
+              -1);
+    } else if (s == menu_auto_reservoir_running) {
+        unsigned long runtime = millis() - start_time;
+        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        
+        unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
+        String b;
+        for (unsigned long i = 0; i < anim; i++) {
+            b += '#';
+        }
+        
+        print("--- Filling Tank ---",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
+              -1);
+    } else if (s == menu_auto_plant) {
+        String a = String("(Input 1 to ") + String(plants.countPlants()) + String(")");
+        
+        print("--- Select Plant ---",
+              "Which plant to water",
+              a.c_str(),
+              "Plant: ",
+              3);
+    } else if (s == menu_auto_plant_running) {
+        unsigned long runtime = millis() - start_time;
+        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        
+        unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
+        String b;
+        for (unsigned long i = 0; i < anim; i++) {
+            b += '#';
+        }
+        
+        print("----- Watering -----",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
               -1);
     } else if (s == menu_auto_done) {
-        print("menu_auto_done",
-              "",
-              "TODO not implemented",
-              "",
+        String a = String("after ") + String((stop_time - start_time) / 1000UL) + String("s.");
+        
+        print("------- Done -------",
+              "Dispensing finished",
+              a.c_str(),
+              "Hit any key for menu",
               -1);
     } else if (s == menu_pumps) {
         String a = String("(Input 1 to ") + String(plants.countFertilizers()) + String(")");

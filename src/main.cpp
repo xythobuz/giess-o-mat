@@ -3,11 +3,7 @@
 #include "SerialLCD.h"
 #include "Statemachine.h"
 #include "Plants.h"
-
-//#define DEBUG_WAIT_FOR_SERIAL_CONN
-
-#define DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
-#define DEBUG_ENABLE_KEYPAD_INPUT_ON_SERIAL
+#include "config.h"
 
 SerialLCD lcd(9);
 
@@ -19,7 +15,6 @@ int valve_pins[5] = { 10, 11, 12, 13, 14 };
 int pump_pins[3] = { 15, 16, 17 };
 int switch_pins[2] = { 18, 19 };
 
-#define DISPLAY_BACKLIGHT_TIMEOUT (5UL * 60UL * 1000UL)
 unsigned long last_input_time = 0;
 bool backlight_state = true;
 
