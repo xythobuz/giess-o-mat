@@ -1,7 +1,13 @@
 #ifndef _SERIAL_LCD_H_
 #define _SERIAL_LCD_H_
 
+#if defined(PLATFORM_AVR)
 #include <SendOnlySoftwareSerial.h>
+#elif defined(PLATFORM_ESP)
+#include <SoftwareSerial.h>
+#else
+#error platform not supported
+#endif
 
 class SerialLCD {
 public:
@@ -22,7 +28,11 @@ public:
     void write(int line, int col, const char *text);
     
 private:
+#if defined(PLATFORM_AVR)
     SendOnlySoftwareSerial *lcd;
+#elif defined(PLATFORM_ESP)
+    SoftwareSerial *lcd;
+#endif
 };
 
 #endif // _SERIAL_LCD_H_

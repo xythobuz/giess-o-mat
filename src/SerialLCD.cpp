@@ -4,7 +4,12 @@
 #define LCD_DELAY 3 // 3
 
 SerialLCD::SerialLCD(int tx_pin) {
+#if defined(PLATFORM_AVR)
     lcd = new SendOnlySoftwareSerial(tx_pin);
+#elif defined(PLATFORM_ESP)
+    lcd = new SoftwareSerial(tx_pin);
+#endif
+    
     lcd->begin(9600);
 }
 

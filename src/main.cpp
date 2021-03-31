@@ -1,9 +1,16 @@
 #include <Arduino.h>
+
 #include "Keymatrix.h"
 #include "SerialLCD.h"
 #include "Statemachine.h"
 #include "Plants.h"
+#include "WifiStuff.h"
 #include "config.h"
+
+void blink_lcd(int n, int wait = 200);
+void write_to_all(const char *a, const char *b,
+                  const char *c, const char *d, int num_input);
+void backspace(void);
 
 SerialLCD lcd(9);
 
@@ -15,94 +22,11 @@ int valve_pins[5] = { 10, 11, 12, 13, 14 };
 int pump_pins[3] = { 15, 16, 17 };
 int switch_pins[2] = { 18, 19 };
 
+Statemachine sm(write_to_all, backspace);
+
 unsigned long last_input_time = 0;
 bool backlight_state = true;
-
 bool doing_multi_input = false;
-
-void write_to_all(const char *a, const char *b,
-                  const char *c, const char *d, int num_input) {
-    lcd.clear();
-    
-    if (num_input >= 0) {
-        lcd.write(0, a);
-        if (num_input >= 1) {
-            lcd.write(1, b);
-        }
-        if (num_input >= 2) {
-            lcd.write(2, c);
-        }
-        if (num_input >= 3) {
-            lcd.write(3, d);
-        }
-        
-        lcd.cursor(3);
-        doing_multi_input = true;
-    } else {
-        lcd.write(0, a);
-        lcd.write(1, b);
-        lcd.write(2, c);
-        lcd.write(3, d);
-        
-        lcd.cursor(0);
-        doing_multi_input = false;
-    }
-    
-#ifdef DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
-    int la = strlen(a);
-    int lb = strlen(b);
-    int lc = strlen(c);
-    int ld = strlen(d);
-    
-    Serial.println();
-    Serial.println(" ----------------------");
-    
-    Serial.print("| ");
-    Serial.print(a);
-    if (la < 20) {
-        for (int i = 0; i < (20 - la); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(b);
-    if (lb < 20) {
-        for (int i = 0; i < (20 - lb); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(c);
-    if (lc < 20) {
-        for (int i = 0; i < (20 - lc); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(d);
-    if (ld < 20) {
-        for (int i = 0; i < (20 - ld); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.println(" ----------------------");
-    Serial.println("Please provide keypad input:");
-#endif
-}
-
-void backspace(void) {
-    lcd.write("\b");
-}
-
-Statemachine sm(write_to_all, backspace);
 
 void setup() {
     Serial.begin(115200);
@@ -127,22 +51,19 @@ void setup() {
     lcd.clear();
 #endif
     
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+    wifi_setup();
+#endif
+    
     Serial.println("Ready, starting main loop");
     sm.begin();
 }
 
-void blink_lcd(int n, int wait = 200) {
-    for (int i = 0; i < n; i++) {
-        lcd.setBacklight(0);
-        delay(wait);
-        
-        lcd.setBacklight(255);
-        if (i < (n - 1))
-            delay(wait);
-    }
-}
-
 void loop() {
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+    wifi_run();
+#endif
+
     keys.scan();
     while (keys.hasEvent()) {
         auto ke = keys.getEvent();
@@ -240,5 +161,98 @@ void loop() {
     if (backlight_state && (millis() >= (last_input_time + DISPLAY_BACKLIGHT_TIMEOUT))) {
         backlight_state = false;
         lcd.setBacklight(0);
+    }
+}
+
+void write_to_all(const char *a, const char *b,
+                  const char *c, const char *d, int num_input) {
+    lcd.clear();
+    
+    if (num_input >= 0) {
+        lcd.write(0, a);
+        if (num_input >= 1) {
+            lcd.write(1, b);
+        }
+        if (num_input >= 2) {
+            lcd.write(2, c);
+        }
+        if (num_input >= 3) {
+            lcd.write(3, d);
+        }
+        
+        lcd.cursor(3);
+        doing_multi_input = true;
+    } else {
+        lcd.write(0, a);
+        lcd.write(1, b);
+        lcd.write(2, c);
+        lcd.write(3, d);
+        
+        lcd.cursor(0);
+        doing_multi_input = false;
+    }
+    
+#ifdef DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
+    int la = strlen(a);
+    int lb = strlen(b);
+    int lc = strlen(c);
+    int ld = strlen(d);
+    
+    Serial.println();
+    Serial.println(" ----------------------");
+    
+    Serial.print("| ");
+    Serial.print(a);
+    if (la < 20) {
+        for (int i = 0; i < (20 - la); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.print("| ");
+    Serial.print(b);
+    if (lb < 20) {
+        for (int i = 0; i < (20 - lb); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.print("| ");
+    Serial.print(c);
+    if (lc < 20) {
+        for (int i = 0; i < (20 - lc); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.print("| ");
+    Serial.print(d);
+    if (ld < 20) {
+        for (int i = 0; i < (20 - ld); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.println(" ----------------------");
+    Serial.println("Please provide keypad input:");
+#endif
+}
+
+void backspace(void) {
+    lcd.write("\b");
+}
+
+void blink_lcd(int n, int wait) {
+    for (int i = 0; i < n; i++) {
+        lcd.setBacklight(0);
+        delay(wait);
+        
+        lcd.setBacklight(255);
+        if (i < (n - 1))
+            delay(wait);
     }
 }

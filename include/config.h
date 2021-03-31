@@ -14,4 +14,14 @@
 #define AUTO_PUMP_RUNTIME 5
 #define MAX_AUTO_PLANT_RUNTIME 15
 
+// Sketch version
+#define FIRMWARE_VERSION "0.1"
+
+// all given in milliseconds
+#define SERVER_HANDLE_INTERVAL 10
+#define LED_BLINK_INTERVAL (2 * 1000)
+#define LED_INIT_BLINK_INTERVAL 500
+#define LED_CONNECT_BLINK_INTERVAL 250
+#define LED_ERROR_BLINK_INTERVAL 100
+
 #endif // _CONFIG_H_

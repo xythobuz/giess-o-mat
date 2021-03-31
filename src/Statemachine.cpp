@@ -464,7 +464,9 @@ void Statemachine::switch_to(States s) {
     state = s;
     
     if (s == init) {
-        print("- Giess-o-mat V0.1 -",
+        String a = String("- Giess-o-mat V") + FIRMWARE_VERSION + String(" -");
+        
+        print(a.c_str(),
               "Usage:  Enter number",
               "* Delete prev. digit",
               "# Execute input num.",
