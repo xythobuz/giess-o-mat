@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "Keymatrix.h"
 
+#ifdef FUNCTION_UI
+
 //#define DEBUG_PRINT_MATRIX_STATE
 
 Keymatrix::Event::Event(EventType _type, int _row, int _col) {
@@ -155,3 +157,5 @@ Keymatrix::Event Keymatrix::getEvent(void) {
         return Keymatrix::Event(Event::no_event, -1, -1);
     }
 }
+
+#endif // FUNCTION_UI

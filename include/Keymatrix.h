@@ -1,6 +1,8 @@
 #ifndef _KEYMATRIX_H_
 #define _KEYMATRIX_H_
 
+#ifdef FUNCTION_UI
+
 #include <CircularBuffer.h>
 
 class Keymatrix {
@@ -51,5 +53,7 @@ private:
     
     CircularBuffer<Event *, 32> events;
 };
+
+#endif // FUNCTION_UI
 
 #endif // _KEYMATRIX_H_

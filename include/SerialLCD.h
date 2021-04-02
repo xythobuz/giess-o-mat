@@ -1,6 +1,8 @@
 #ifndef _SERIAL_LCD_H_
 #define _SERIAL_LCD_H_
 
+#ifdef FUNCTION_UI
+
 #if defined(PLATFORM_AVR)
 #include <SendOnlySoftwareSerial.h>
 #elif defined(PLATFORM_ESP)
@@ -34,5 +36,7 @@ private:
     SoftwareSerial *lcd;
 #endif
 };
+
+#endif // FUNCTION_UI
 
 #endif // _SERIAL_LCD_H_

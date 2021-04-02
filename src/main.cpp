@@ -1,258 +1,63 @@
 #include <Arduino.h>
 
-#include "Keymatrix.h"
-#include "SerialLCD.h"
-#include "Statemachine.h"
-#include "Plants.h"
+#include "Functionality.h"
 #include "WifiStuff.h"
 #include "config.h"
+#include "config_pins.h"
 
-void blink_lcd(int n, int wait = 200);
-void write_to_all(const char *a, const char *b,
-                  const char *c, const char *d, int num_input);
-void backspace(void);
-
-SerialLCD lcd(9);
-
-Keymatrix keys(4, 3);
-int keymatrix_pins[4 + 3] = { 5, 6, 7, 8, 2, 3, 4 };
-
-Plants plants(5, 3, 2);
-int valve_pins[5] = { 10, 11, 12, 13, 14 };
-int pump_pins[3] = { 15, 16, 17 };
-int switch_pins[2] = { 18, 19 };
-
-Statemachine sm(write_to_all, backspace);
-
-unsigned long last_input_time = 0;
-bool backlight_state = true;
-bool doing_multi_input = false;
+unsigned long last_led_blink_time = 0;
 
 void setup() {
+    pinMode(BUILTIN_LED_PIN, OUTPUT);
+    digitalWrite(BUILTIN_LED_PIN, HIGH);
+    
     Serial.begin(115200);
     Serial.println("Initializing Giess-o-mat");
-    
-    keys.setPins(keymatrix_pins);
-    plants.setValvePins(valve_pins);
-    plants.setPumpPins(pump_pins);
-    plants.setSwitchPins(switch_pins, true);
+    Serial.println("Version: " FIRMWARE_VERSION);
 
-    Serial.println("Setting up LCD, please wait");
-    delay(1000); // give LCD some time to boot
-    lcd.init();
+#ifdef FUNCTION_UI
+    ui_setup();
+#endif // FUNCTION_UI
     
-#ifdef DEBUG_WAIT_FOR_SERIAL_CONN
-    lcd.write(0, "Waiting for serial");
-    lcd.write(1, "connection on debug");
-    lcd.write(2, "USB port...");
+#ifdef FUNCTION_CONTROL
+    control_setup();
+#endif // FUNCTION_CONTROL
     
-    while (!Serial);
-    
-    lcd.clear();
-#endif
-    
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+#ifdef PLATFORM_ESP
     wifi_setup();
-#endif
+#endif // PLATFORM_ESP
     
     Serial.println("Ready, starting main loop");
-    sm.begin();
+    digitalWrite(BUILTIN_LED_PIN, LOW);
+    
+#ifdef FUNCTION_CONTROL
+    
+#ifndef FUNCTION_UI
+    // give ui unit some time to initialize
+    delay(3000);
+#endif // ! FUNCTION_UI
+    
+    control_begin();
+    
+#endif // FUNCTION_CONTROL
 }
 
 void loop() {
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+#ifdef PLATFORM_ESP
     wifi_run();
-#endif
+#endif // PLATFORM_ESP
 
-    keys.scan();
-    while (keys.hasEvent()) {
-        auto ke = keys.getEvent();
-        if (ke.getType() == Keymatrix::Event::button_down) {
-            last_input_time = millis();
-            if (!backlight_state) {
-                backlight_state = true;
-                lcd.setBacklight(255);
-                
-                // swallow input when used to activate light
-                continue;
-            }
-            
-            int n = ke.getNum();
-            Serial.print("Got keypad input: \"");
-            
-            if (n < 0) {
-                Serial.print((n == -1) ? '*' : '#');
-            } else {
-                Serial.print(n);
-                
-                if (doing_multi_input) {
-                    char s[2] = { (char)(n + '0'), '\0' };
-                    lcd.write(s);
-                }
-            }
-            
-            Serial.println("\"");
-            
-            blink_lcd(1, 100);
-            sm.input(n);
-        }
-    }
+#ifdef FUNCTION_UI
+    ui_run();
+#endif // FUNCTION_UI
     
-#ifdef DEBUG_ENABLE_KEYPAD_INPUT_ON_SERIAL
-    if (Serial.available() > 0) {
-        last_input_time = millis();
-        if (!backlight_state) {
-            backlight_state = true;
-            lcd.setBacklight(255);
-        }
-        
-        int c = Serial.read();
-        if (c == '*') {
-            Serial.write(c);
-            Serial.write('\n');
-            
-            if (doing_multi_input) {
-                char s[2] = { (char)(c), '\0' };
-                lcd.write(s);
-            }
-            
-            sm.input(-1);
-        } else if  (c == '#') {
-            Serial.write(c);
-            Serial.write('\n');
-            
-            if (doing_multi_input) {
-                char s[2] = { (char)(c), '\0' };
-                lcd.write(s);
-            }
-            
-            sm.input(-2);
-        } else if  (c == '\n') {
-            Serial.write('#');
-            Serial.write('\n');
-            
-            if (doing_multi_input) {
-                char s[2] = { '#', '\0' };
-                lcd.write(s);
-            }
-            
-            sm.input(-2);
-        } else if (c == '\b') {
-            Serial.write(c);
-            sm.input(-1);
-        } else if ((c >= '0') && (c <= '9')) {
-            Serial.write(c);
-            if (!doing_multi_input) {
-                Serial.write('\n');
-            }
-            
-            if (doing_multi_input) {
-                char s[2] = { (char)(c), '\0' };
-                lcd.write(s);
-            }
-            
-            sm.input(c - '0');
-        }
-    }
-#endif
-    
-    sm.act();
-    
-    if (backlight_state && (millis() >= (last_input_time + DISPLAY_BACKLIGHT_TIMEOUT))) {
-        backlight_state = false;
-        lcd.setBacklight(0);
-    }
-}
+#ifdef FUNCTION_CONTROL
+    control_run();
+#endif // FUNCTION_CONTROL
 
-void write_to_all(const char *a, const char *b,
-                  const char *c, const char *d, int num_input) {
-    lcd.clear();
-    
-    if (num_input >= 0) {
-        lcd.write(0, a);
-        if (num_input >= 1) {
-            lcd.write(1, b);
-        }
-        if (num_input >= 2) {
-            lcd.write(2, c);
-        }
-        if (num_input >= 3) {
-            lcd.write(3, d);
-        }
-        
-        lcd.cursor(3);
-        doing_multi_input = true;
-    } else {
-        lcd.write(0, a);
-        lcd.write(1, b);
-        lcd.write(2, c);
-        lcd.write(3, d);
-        
-        lcd.cursor(0);
-        doing_multi_input = false;
-    }
-    
-#ifdef DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
-    int la = strlen(a);
-    int lb = strlen(b);
-    int lc = strlen(c);
-    int ld = strlen(d);
-    
-    Serial.println();
-    Serial.println(" ----------------------");
-    
-    Serial.print("| ");
-    Serial.print(a);
-    if (la < 20) {
-        for (int i = 0; i < (20 - la); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(b);
-    if (lb < 20) {
-        for (int i = 0; i < (20 - lb); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(c);
-    if (lc < 20) {
-        for (int i = 0; i < (20 - lc); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(d);
-    if (ld < 20) {
-        for (int i = 0; i < (20 - ld); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.println(" ----------------------");
-    Serial.println("Please provide keypad input:");
-#endif
-}
-
-void backspace(void) {
-    lcd.write("\b");
-}
-
-void blink_lcd(int n, int wait) {
-    for (int i = 0; i < n; i++) {
-        lcd.setBacklight(0);
-        delay(wait);
-        
-        lcd.setBacklight(255);
-        if (i < (n - 1))
-            delay(wait);
+    // blink heartbeat LED
+    if ((millis() - last_led_blink_time) >= LED_BLINK_INTERVAL) {
+        last_led_blink_time = millis();
+        digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
 }

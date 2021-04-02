@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "SerialLCD.h"
 
+#ifdef FUNCTION_UI
+
 #define LCD_DELAY 3 // 3
 
 SerialLCD::SerialLCD(int tx_pin) {
@@ -95,3 +97,5 @@ void SerialLCD::write(int line, int col, const char *text) {
     position(line, col);
     write(text);
 }
+
+#endif // FUNCTION_UI

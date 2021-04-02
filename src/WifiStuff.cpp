@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#ifdef PLATFORM_ESP
+
 #if defined(ARDUINO_ARCH_ESP8266)
 
 #include <ESP8266WiFi.h>
@@ -14,19 +16,15 @@
 
 #endif
 
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
-
 #include "wifi.h"
 #include "config.h"
+#include "config_pins.h"
 #include "SimpleUpdater.h"
 #include "WifiStuff.h"
-
-#define BUILTIN_LED_PIN 1
 
 UPDATE_WEB_SERVER server(80);
 SimpleUpdater updater;
 unsigned long last_server_handle_time = 0;
-unsigned long last_led_blink_time = 0;
 
 String message_buffer_a;
 String message_buffer_b;
@@ -172,15 +170,10 @@ void wifi_run() {
     if ((millis() - last_server_handle_time) >= SERVER_HANDLE_INTERVAL) {
         last_server_handle_time = millis();
         server.handleClient();
-#if defined(ARDUINO_ARCH_ESP8266)
+        
+#ifdef ARDUINO_ARCH_ESP8266
         MDNS.update();
-#endif
-    }
-
-    // blink heartbeat LED
-    if ((millis() - last_led_blink_time) >= LED_BLINK_INTERVAL) {
-        last_led_blink_time = millis();
-        digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
+#endif // ARDUINO_ARCH_ESP8266
     }
     
     // reset ESP every 6h to be safe
@@ -189,4 +182,4 @@ void wifi_run() {
     }
 }
 
-#endif // defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+#endif // PLATFORM_ESP
