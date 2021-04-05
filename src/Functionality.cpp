@@ -413,6 +413,14 @@ void blink_lcd(int n, int wait) {
 
 #ifdef FUNCTION_CONTROL
 
+const char *control_state_name(void) {
+    return sm.getStateName();
+}
+
+void control_act_input(int n) {
+    sm.input(n);
+}
+
 void control_setup(void) {
     plants.setValvePins(valve_pins);
     plants.setPumpPins(pump_pins);

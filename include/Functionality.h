@@ -16,6 +16,9 @@ void control_setup(void);
 void control_begin(void);
 void control_run(void);
 
+const char *control_state_name(void);
+void control_act_input(int n);
+
 #endif // FUNCTION_CONTROL
 
 // ----------------------------------------------------------------------------

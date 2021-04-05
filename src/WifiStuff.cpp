@@ -16,13 +16,17 @@
 
 #endif
 
+#include <WebSocketsServer.h>
+
 #include "wifi.h"
 #include "config.h"
 #include "config_pins.h"
+#include "Functionality.h"
 #include "SimpleUpdater.h"
 #include "WifiStuff.h"
 
 UPDATE_WEB_SERVER server(80);
+WebSocketsServer socket = WebSocketsServer(81);
 SimpleUpdater updater;
 unsigned long last_server_handle_time = 0;
 
@@ -36,54 +40,116 @@ void wifi_set_message_buffer(String a, String b, String c, String d) {
     message_buffer_b = b;
     message_buffer_c = c;
     message_buffer_d = d;
+    
+    a.replace("\"", "'");
+    b.replace("\"", "'");
+    c.replace("\"", "'");
+    d.replace("\"", "'");
+    
+    String ws = "{\n";
+    ws += "\"a\": \"" + a + "\",\n";
+    ws += "\"b\": \"" + b + "\",\n";
+    ws += "\"c\": \"" + c + "\",\n";
+    ws += "\"d\": \"" + d + "\",\n";
+    ws += "\"state\": \"" + String(control_state_name()) + "\"\n";
+    ws += "}";
+    socket.broadcastTXT(ws);
 }
 
 void handleRoot() {
-    String message = F("<html><head>\n");
-    message += F("<title>Giess-o-mat</title>\n");
+    String message = F("<!DOCTYPE html>\n");
+    message += F("<html><head>\n");
+    message += F("<meta charset='utf-8'/>\n");
+    message += F("<meta name='viewport' content='width=device-width, initial-scale=1'/>\n");
+    message += F("<title>Gieß-o-mat</title>\n");
+    
+    message += F("<style type='text/css'>\n");
+    message += F(".container {\n");
+    message += F("display: flex;\n");
+    message += F("}\n");
+    
+    message += F(".ui {\n");
+    message += F("width: max-content;\n");
+    message += F("margin-right: 1em;\n");
+    message += F("padding: 0 1.0em;\n");
+    message += F("border: 1px dashed black;\n");
+    message += F("}\n");
+    
+    message += F(".info {\n");
+    message += F("flex-grow: 1;\n");
+    message += F("}\n");
+    
+    message += F(".pad {\n");
+    message += F("background: black;\n");
+    message += F("border: 3px solid black;\n");
+    message += F("width: max-content;\n");
+    message += F("padding: 1.5em;\n");
+    message += F("margin-left: auto;\n");
+    message += F("margin-right: auto;\n");
+    message += F("}\n");
+    
+    message += F(".pad input {\n");
+    message += F("background: #fff0cf;\n");
+    message += F("font-weight: bold;\n");
+    message += F("font-family: monospace;\n");
+    message += F("padding: 0.5em 1em;\n");
+    message += F("margin: 0.5em;\n");
+    message += F("}\n");
+    
+    // https://codepen.io/hawkz/pres/RpPaGK
+    message += F(".lcd {\n");
+    //message += F("background: #9ea18c;\n");
+    message += F("background: #9ed18c;\n");
+    message += F("border: 3px solid black;\n");
+    message += F("width: max-content;\n");
+    message += F("padding: 0.65em 1em;\n");
+    message += F("box-shadow: inset 0 0 5px 5px rgba(0,0,0,.1);\n");
+    message += F("font-weight: bold;\n");
+    message += F("font-family: monospace;\n");
+    message += F("letter-spacing: 0.1em;\n");
+    message += F("font-size: 1.2em;\n");
+    message += F("line-height: 160%;\n");
+    message += F("color: #21230e;\n");
+    message += F("text-shadow: -1px 2px 1px rgba(0,0,0,.1);\n");
+    message += F("}\n");
+    message += F("</style>\n");
+    
     message += F("</head><body>\n");
-    message += F("<h1>Giess-o-mat</h1>\n");
+    message += F("<h1>Gieß-o-mat</h1>\n");
     
-    message += F("\n<pre>\n");
-    message += F(" ----------------------\n");
-    
-    message += F("| ");
-    message += message_buffer_a;
-    for (int i = 0; i < (20 - message_buffer_a.length()); i++) {
-        message += ' ';
-    }
-    message += F(" |\n");
-    
-    message += F("| ");
-    message += message_buffer_b;
-    for (int i = 0; i < (20 - message_buffer_b.length()); i++) {
-        message += ' ';
-    }
-    message += F(" |\n");
-    
-    message += F("| ");
-    message += message_buffer_c;
-    for (int i = 0; i < (20 - message_buffer_c.length()); i++) {
-        message += ' ';
-    }
-    message += F(" |\n");
-    
-    message += F("| ");
-    message += message_buffer_d;
-    for (int i = 0; i < (20 - message_buffer_d.length()); i++) {
-        message += ' ';
-    }
-    message += F(" |\n");
-    
-    message += F(" ----------------------\n");
+    message += F("<div class='container'>\n");
+    message += F("<div class='ui'>\n");
+    message += F("<pre class='lcd'>\n");
+    message += message_buffer_a + '\n';
+    message += message_buffer_b + '\n';
+    message += message_buffer_c + '\n';
+    message += message_buffer_d + '\n';
     message += F("</pre>\n");
     
-    message += F("\n<p>\n");
-    message += F("State: ");
-    // TODO
-    message += F("\n</p>\n");
+    message += F("<form class='pad'>\n");
+    message += F("<input type='button' value='1'>");
+    message += F("<input type='button' value='2'>");
+    message += F("<input type='button' value='3'>");
+    message += F("<br>\n");
+    message += F("<input type='button' value='4'>");
+    message += F("<input type='button' value='5'>");
+    message += F("<input type='button' value='6'>");
+    message += F("<br>\n");
+    message += F("<input type='button' value='7'>");
+    message += F("<input type='button' value='8'>");
+    message += F("<input type='button' value='9'>");
+    message += F("<br>\n");
+    message += F("<input type='button' value='*'>");
+    message += F("<input type='button' value='0'>");
+    message += F("<input type='button' value='#'>");
+    message += F("</form>\n");
     
-    message += F("\n<p>\n");
+    message += F("<p id='state'>\n");
+    message += F("State: ");
+    message += control_state_name();
+    message += F("</p></div>\n");
+    
+    message += F("<div class='info'><p>\n");
     message += F("Version: ");
     message += FIRMWARE_VERSION;
     message += F("\n<br>\n");
@@ -134,11 +200,48 @@ void handleRoot() {
 #endif
 
     message += F("<p>\n");
-    message += F("Try <a href=\"/update\">/update</a> for OTA firmware updates!\n");
-    message += F("</p>\n");
-    message += F("</body></html>\n");
+    message += F("Try <a href='/update'>/update</a> for OTA firmware updates!\n");
+    message += F("</p></div>\n");
+    message += F("</div></body>\n");
+    
+    message += F("<script type='text/javascript'>\n");
+    message += F("var socket = new WebSocket('ws://' + window.location.hostname + ':81');\n");
+    message += F("socket.onmessage = function(e) {\n");
+    message += F(    "var msg = JSON.parse(e.data);\n");
+    message += F(    "var str = msg.a + '\\n' + msg.b + '\\n' + msg.c + '\\n' + msg.d;\n");
+    message += F(    "console.log(str);\n");
+    message += F(    "var lcd = document.getElementsByClassName('lcd');\n");
+    message += F(    "lcd[0].innerHTML = str;\n");
+    message += F(    "var state = document.getElementById('state');\n");
+    message += F(    "state.innerHTML = \"State: \" + msg.state;\n");
+    message += F("};\n");
+    
+    message += F("var buttons = document.getElementsByTagName('input');\n");
+    message += F("for (let i = 0; i < buttons.length; i++) {\n");
+    message += F(    "buttons[i].addEventListener('click', updateButton);\n");
+    message += F("}\n");
+    message += F("function updateButton() {\n");
+    message += F(    "socket.send(this.value);\n");
+    message += F("}\n");
+    message += F("</script>\n");
+    message += F("</html>\n");
 
     server.send(200, "text/html", message);
+}
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+    if ((type != WStype_TEXT) || (length != 1)) {
+        return;
+    }
+    
+    char c = payload[0];
+    if ((c >= '0') && (c <= '9')) {
+        control_act_input(c - '0');
+    } else if (c == '*') {
+        control_act_input(-1);
+    } else if (c == '#') {
+        control_act_input(-2);
+    }
 }
 
 void wifi_setup() {
@@ -205,6 +308,9 @@ void wifi_setup() {
     server.begin();
     MDNS.addService("http", "tcp", 80);
     
+    socket.begin();
+    socket.onEvent(webSocketEvent);
+    
     Serial.println("WiFi: setup done");
 }
 
@@ -212,6 +318,7 @@ void wifi_run() {
     if ((millis() - last_server_handle_time) >= SERVER_HANDLE_INTERVAL) {
         last_server_handle_time = millis();
         server.handleClient();
+        socket.loop();
         
 #ifdef ARDUINO_ARCH_ESP8266
         MDNS.update();

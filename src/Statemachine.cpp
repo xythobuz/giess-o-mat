@@ -51,6 +51,33 @@ uint32_t Statemachine::DigitBuffer::getNumber(void) {
     return sum;
 }
 
+static const char *state_names[] = {
+    stringify(init),
+    stringify(menu),
+    stringify(menu_auto),
+    stringify(menu_auto_fertilizer),
+    stringify(menu_auto_fertilizer_running),
+    stringify(menu_auto_reservoir_running),
+    stringify(menu_auto_plant),
+    stringify(menu_auto_plant_running),
+    stringify(menu_auto_done),
+    stringify(menu_pumps),
+    stringify(menu_pumps_time),
+    stringify(menu_pumps_go),
+    stringify(menu_pumps_running),
+    stringify(menu_pumps_done),
+    stringify(menu_valves),
+    stringify(menu_valves_time),
+    stringify(menu_valves_go),
+    stringify(menu_valves_running),
+    stringify(menu_valves_done),
+    stringify(error)
+};
+
+const char *Statemachine::getStateName(void) {
+    return state_names[state];
+}
+
 Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
         : db(7) {
     state = init;

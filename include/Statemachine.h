@@ -3,10 +3,12 @@
 
 #include <Arduino.h>
 
+#define stringify( name ) # name
+
 class Statemachine {
 public:
     enum States {
-        init,
+        init = 0,
         menu, // auto, pumps, valves
         
         menu_auto, // select mode
@@ -62,6 +64,8 @@ public:
     
     void input(int n);
     void act(void);
+    
+    const char *getStateName(void);
     
 private:
     void switch_to(States s);
