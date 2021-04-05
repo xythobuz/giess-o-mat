@@ -373,9 +373,10 @@ void handleRoot() {
     
 #endif
 
-    message += F("<p>\n");
-    message += F("Try <a href='/update'>/update</a> for OTA firmware updates!\n");
-    message += F("</p></div>\n");
+    message += F("<p>Try <a href='/update'>/update</a> for OTA firmware updates!</p>\n");
+    message += F("<p>Made by <a href='https://xythobuz.de'>xythobuz</a></p>\n");
+    message += F("<p><a href='https://git.xythobuz.de/thomas/giess-o-mat'>Project Repository</a></p>\n");
+    message += F("</div>\n");
     message += F("</div></body>\n");
     
     message += F("<script type='text/javascript'>\n");

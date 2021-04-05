@@ -32,11 +32,13 @@ void SimpleUpdater::get(void) {
         "</head><body>\n"
         
         "<h1>SimpleUpdater</h1>\n"
+        "<p>Select the update file. If you have built this project with PlatformIO, you can find a firmware.bin in the .pio folder.</p>\n"
         "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>\n"
         "<input type='file' name='update' accept='.bin'>\n"
         "<input type='submit' value='Update'>\n"
-        "</form>\n"
+        "</form><br>\n"
         "<div id='prg'>progress: 0%</div>\n"
+        "<p>After the update is finished, you will automatically be redirected to the main page.</p>\n"
         "<a href=\"/\">Back to Main Page</a>\n"
         
         "<script>\n"
@@ -67,7 +69,7 @@ void SimpleUpdater::get(void) {
                     "}, 3000);\n"
                 "},\n"
                 "error: function(a, b, c) {\n"
-                    "$('#prg').html('progress: error! redirecting...');\n"
+                    "$('#prg').html('progress: finished! redirecting...');\n"
                     "setTimeout(function() {\n"
                         "window.location.href = '/';\n"
                     "}, 1000);\n"

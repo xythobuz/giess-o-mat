@@ -15,7 +15,7 @@
 #define MAX_AUTO_PLANT_RUNTIME 15
 
 // Sketch version
-#define FIRMWARE_VERSION "0.1"
+#define FIRMWARE_VERSION "0.2"
 
 // all given in milliseconds
 #define SERVER_HANDLE_INTERVAL 10

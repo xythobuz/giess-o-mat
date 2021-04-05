@@ -11,24 +11,24 @@ public:
         init = 0,
         menu, // auto, pumps, valves
         
-        menu_auto, // select mode
-        menu_auto_fertilizer, // select fertilizer
-        menu_auto_fertilizer_running,
-        menu_auto_reservoir_running,
-        menu_auto_plant, // select plant
-        menu_auto_plant_running,
-        menu_auto_done,
+        auto_mode, // select mode
+        auto_fert, // select fertilizer
+        auto_fert_run,
+        auto_tank_run,
+        auto_plant, // select plant
+        auto_plant_run,
+        auto_done,
         
         menu_pumps, // selet pump
         menu_pumps_time, // set runtime
         menu_pumps_go, // running
-        menu_pumps_running,
+        menu_pumps_run,
         menu_pumps_done,
         
         menu_valves, // select valve
         menu_valves_time, // set runtime
         menu_valves_go, // running
-        menu_valves_running,
+        menu_valves_run,
         menu_valves_done,
         
         error
