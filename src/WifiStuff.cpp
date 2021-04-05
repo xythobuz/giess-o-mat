@@ -45,11 +45,38 @@ void handleRoot() {
     message += F("<h1>Giess-o-mat</h1>\n");
     
     message += F("\n<pre>\n");
-    message += message_buffer_a + '\n';
-    message += message_buffer_b + '\n';
-    message += message_buffer_c + '\n';
-    message += message_buffer_d + '\n';
-    message += F("\n</pre>\n");
+    message += F(" ----------------------\n");
+    
+    message += F("| ");
+    message += message_buffer_a;
+    for (int i = 0; i < (20 - message_buffer_a.length()); i++) {
+        message += ' ';
+    }
+    message += F(" |\n");
+    
+    message += F("| ");
+    message += message_buffer_b;
+    for (int i = 0; i < (20 - message_buffer_b.length()); i++) {
+        message += ' ';
+    }
+    message += F(" |\n");
+    
+    message += F("| ");
+    message += message_buffer_c;
+    for (int i = 0; i < (20 - message_buffer_c.length()); i++) {
+        message += ' ';
+    }
+    message += F(" |\n");
+    
+    message += F("| ");
+    message += message_buffer_d;
+    for (int i = 0; i < (20 - message_buffer_d.length()); i++) {
+        message += ' ';
+    }
+    message += F(" |\n");
+    
+    message += F(" ----------------------\n");
+    message += F("</pre>\n");
     
     message += F("\n<p>\n");
     message += F("State: ");
@@ -121,22 +148,29 @@ void wifi_setup() {
 #if defined(ARDUINO_ARCH_ESP8266)
 
     // Connect to WiFi AP
+    Serial.println("WiFi: initializing");
     WiFi.hostname(hostname);
     WiFi.mode(WIFI_STA);
+    
+    Serial.print("WiFi: connecting");
     WiFi.begin(WIFI_SSID, WIFI_PW);
     while (WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
         delay(LED_CONNECT_BLINK_INTERVAL);
         digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
+    Serial.println();
     
 #elif defined(ARDUINO_ARCH_ESP32)
 
     // Set hostname workaround
+    Serial.println("WiFi: set hostname");
     WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(hostname.c_str());
     
     // Workaround for WiFi connecting only every 2nd reset
     // https://github.com/espressif/arduino-esp32/issues/2501#issuecomment-513602522
+    Serial.println("WiFi: connection work-around");
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
         if (info.disconnected.reason == 202) {
             esp_sleep_enable_timer_wakeup(10);
@@ -146,24 +180,32 @@ void wifi_setup() {
     }, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
 
     // Connect to WiFi AP
+    Serial.println("WiFi: SSID=" WIFI_SSID);
+    Serial.print("WiFi: connecting");
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PW);
     while (WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
         delay(LED_CONNECT_BLINK_INTERVAL);
         digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
+    Serial.println();
     
     // Set hostname workaround
+    Serial.println("WiFi: set hostname work-around");
     WiFi.setHostname(hostname.c_str());
 
 #endif
 
     // Setup HTTP Server
+    Serial.println("WiFi: initializing HTTP server");
     MDNS.begin(hostname.c_str());
     updater.setup(&server);
     server.on("/", handleRoot);
     server.begin();
     MDNS.addService("http", "tcp", 80);
+    
+    Serial.println("WiFi: setup done");
 }
 
 void wifi_run() {

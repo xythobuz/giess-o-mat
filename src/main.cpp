@@ -16,14 +16,17 @@ void setup() {
     Serial.println("Version: " FIRMWARE_VERSION);
 
 #ifdef FUNCTION_UI
+    Serial.println("Initializing UI");
     ui_setup();
 #endif // FUNCTION_UI
     
 #ifdef FUNCTION_CONTROL
+    Serial.println("Initializing Control");
     control_setup();
 #endif // FUNCTION_CONTROL
     
 #ifdef PLATFORM_ESP
+    Serial.println("Initializing WiFi");
     wifi_setup();
 #endif // PLATFORM_ESP
     
@@ -34,9 +37,11 @@ void setup() {
     
 #ifndef FUNCTION_UI
     // give ui unit some time to initialize
+    Serial.println("Waiting for UI to boot");
     delay(3000);
 #endif // ! FUNCTION_UI
     
+    Serial.println("Starting state machine");
     control_begin();
     
 #endif // FUNCTION_CONTROL

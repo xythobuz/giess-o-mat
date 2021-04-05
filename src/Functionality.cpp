@@ -38,6 +38,7 @@ bool doing_multi_input = false;
 
 #include "Plants.h"
 #include "Statemachine.h"
+#include "WifiStuff.h"
 
 Plants plants(VALVE_COUNT, PUMP_COUNT, SWITCH_COUNT);
 int valve_pins[VALVE_COUNT] = { VALVE_PINS };
@@ -47,6 +48,144 @@ int switch_pins[SWITCH_COUNT] = { SWITCH_PINS };
 Statemachine sm(write_to_all, backspace);
 
 #endif // FUNCTION_CONTROL
+
+// ----------------------------------------------------------------------------
+
+void write_lcd_to_serial(const char *a, const char *b,
+                  const char *c, const char *d) {
+#ifdef DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
+    int la = strlen(a);
+    int lb = strlen(b);
+    int lc = strlen(c);
+    int ld = strlen(d);
+    
+    Serial.println();
+    Serial.println(" ----------------------");
+    
+    Serial.print("| ");
+    Serial.print(a);
+    if (la < 20) {
+        for (int i = 0; i < (20 - la); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.print("| ");
+    Serial.print(b);
+    if (lb < 20) {
+        for (int i = 0; i < (20 - lb); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.print("| ");
+    Serial.print(c);
+    if (lc < 20) {
+        for (int i = 0; i < (20 - lc); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.print("| ");
+    Serial.print(d);
+    if (ld < 20) {
+        for (int i = 0; i < (20 - ld); i++) {
+            Serial.print(' ');
+        }
+    }
+    Serial.println(" |");
+    
+    Serial.println(" ----------------------");
+    Serial.println("Please provide keypad input:");
+#endif // DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
+}
+
+void handle_input(int n) {
+#ifdef FUNCTION_CONTROL
+    
+    sm.input(n);
+    
+#else
+    
+    keybuffer.push(n);
+    
+#endif // FUNCTION_CONTROL
+}
+
+void input_serial(void) {
+#ifdef DEBUG_ENABLE_KEYPAD_INPUT_ON_SERIAL
+    if (Serial.available() > 0) {
+        
+#ifdef FUNCTION_UI
+        last_input_time = millis();
+        if (!backlight_state) {
+            backlight_state = true;
+            lcd.setBacklight(255);
+        }
+#endif // FUNCTION_UI
+        
+        int c = Serial.read();
+        if (c == '*') {
+            Serial.write(c);
+            Serial.write('\n');
+            
+#ifdef FUNCTION_UI
+            if (doing_multi_input) {
+                char s[2] = { (char)(c), '\0' };
+                lcd.write(s);
+            }
+#endif // FUNCTION_UI
+            
+            handle_input(-1);
+        } else if  (c == '#') {
+            Serial.write(c);
+            Serial.write('\n');
+            
+#ifdef FUNCTION_UI
+            if (doing_multi_input) {
+                char s[2] = { (char)(c), '\0' };
+                lcd.write(s);
+            }
+#endif // FUNCTION_UI
+            
+            handle_input(-2);
+        } else if  (c == '\n') {
+            Serial.write('#');
+            Serial.write('\n');
+            
+#ifdef FUNCTION_UI
+            if (doing_multi_input) {
+                char s[2] = { '#', '\0' };
+                lcd.write(s);
+            }
+#endif // FUNCTION_UI
+            
+            handle_input(-2);
+        } else if (c == '\b') {
+            Serial.write(c);
+            handle_input(-1);
+        } else if ((c >= '0') && (c <= '9')) {
+            Serial.write(c);
+            
+#ifdef FUNCTION_UI
+            if (!doing_multi_input) {
+                Serial.write('\n');
+            }
+            
+            if (doing_multi_input) {
+                char s[2] = { (char)(c), '\0' };
+                lcd.write(s);
+            }
+#endif // FUNCTION_UI
+            
+            handle_input(c - '0');
+        }
+    }
+#endif // DEBUG_ENABLE_KEYPAD_INPUT_ON_SERIAL
+}
 
 // ----------------------------------------------------------------------------
 
@@ -176,18 +315,6 @@ void ui_setup(void) {
 #endif // ! FUNCTION_CONTROL
 }
 
-void handle_input(int n) {
-#ifdef FUNCTION_CONTROL
-    
-    sm.input(n);
-    
-#else
-    
-    keybuffer.push(n);
-    
-#endif // FUNCTION_CONTROL
-}
-
 void input_keypad(void) {
     keys.scan();
     while (keys.hasEvent()) {
@@ -222,66 +349,6 @@ void input_keypad(void) {
             handle_input(n);
         }
     }
-}
-
-void input_serial(void) {
-#ifdef DEBUG_ENABLE_KEYPAD_INPUT_ON_SERIAL
-    if (Serial.available() > 0) {
-        last_input_time = millis();
-        if (!backlight_state) {
-            backlight_state = true;
-            lcd.setBacklight(255);
-        }
-        
-        int c = Serial.read();
-        if (c == '*') {
-            Serial.write(c);
-            Serial.write('\n');
-            
-            if (doing_multi_input) {
-                char s[2] = { (char)(c), '\0' };
-                lcd.write(s);
-            }
-            
-            handle_input(-1);
-        } else if  (c == '#') {
-            Serial.write(c);
-            Serial.write('\n');
-            
-            if (doing_multi_input) {
-                char s[2] = { (char)(c), '\0' };
-                lcd.write(s);
-            }
-            
-            handle_input(-2);
-        } else if  (c == '\n') {
-            Serial.write('#');
-            Serial.write('\n');
-            
-            if (doing_multi_input) {
-                char s[2] = { '#', '\0' };
-                lcd.write(s);
-            }
-            
-            handle_input(-2);
-        } else if (c == '\b') {
-            Serial.write(c);
-            handle_input(-1);
-        } else if ((c >= '0') && (c <= '9')) {
-            Serial.write(c);
-            if (!doing_multi_input) {
-                Serial.write('\n');
-            }
-            
-            if (doing_multi_input) {
-                char s[2] = { (char)(c), '\0' };
-                lcd.write(s);
-            }
-            
-            handle_input(c - '0');
-        }
-    }
-#endif // DEBUG_ENABLE_KEYPAD_INPUT_ON_SERIAL
 }
 
 void ui_run(void) {
@@ -322,54 +389,7 @@ void write_to_all(const char *a, const char *b,
         doing_multi_input = false;
     }
     
-#ifdef DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
-    int la = strlen(a);
-    int lb = strlen(b);
-    int lc = strlen(c);
-    int ld = strlen(d);
-    
-    Serial.println();
-    Serial.println(" ----------------------");
-    
-    Serial.print("| ");
-    Serial.print(a);
-    if (la < 20) {
-        for (int i = 0; i < (20 - la); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(b);
-    if (lb < 20) {
-        for (int i = 0; i < (20 - lb); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(c);
-    if (lc < 20) {
-        for (int i = 0; i < (20 - lc); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.print("| ");
-    Serial.print(d);
-    if (ld < 20) {
-        for (int i = 0; i < (20 - ld); i++) {
-            Serial.print(' ');
-        }
-    }
-    Serial.println(" |");
-    
-    Serial.println(" ----------------------");
-    Serial.println("Please provide keypad input:");
-#endif // DEBUG_ENABLE_LCD_OUTPUT_ON_SERIAL
+    write_lcd_to_serial(a, b, c, d);
 }
 
 void backspace(void) {
@@ -401,9 +421,11 @@ void control_setup(void) {
 #ifndef FUNCTION_UI
     
     Serial.println("Initializing I2C Master");
+    Wire.setClock(I2C_BUS_SPEED);
     Wire.begin();
     
 #ifdef DEBUG_WAIT_FOR_SERIAL_CONN
+    Serial.println("Wait for Serial");
     while (!Serial);
 #endif // DEBUG_WAIT_FOR_SERIAL_CONN
     
@@ -436,6 +458,8 @@ void control_run(void) {
             sm.input(c);
         }
     }
+    
+    input_serial();
 
 #endif // ! FUNCTION_UI
     
@@ -488,6 +512,9 @@ void write_to_all(const char *a, const char *b,
     Wire.write(0x04); // display command
     Wire.write((int8_t)num_input);
     Wire.endTransmission();
+    
+    wifi_set_message_buffer(a, b, c, d);
+    write_lcd_to_serial(a, b, c, d);
 }
 
 #endif // ! FUNCTION_UI

@@ -25,6 +25,7 @@
 #define LED_ERROR_BLINK_INTERVAL 100
 
 #define OWN_I2C_ADDRESS 0x42
+#define I2C_BUS_SPEED 400000
 #define I2C_BUF_SIZE 32
 
 #endif // _CONFIG_H_

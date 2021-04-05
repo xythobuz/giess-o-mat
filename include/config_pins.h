@@ -57,8 +57,6 @@
 
 #ifdef FUNCTION_CONTROL
 
-#ifdef FUNCTION_UI
-
 #define VALVE_COUNT 5
 #define VALVE_PINS 9, 11, 12, 13, 14
 
@@ -67,19 +65,6 @@
 
 #define SWITCH_COUNT 2
 #define SWITCH_PINS 18, 19
-
-#else
-
-#define VALVE_COUNT 5
-#define VALVE_PINS 9, 11, 12, 13, 14
-
-#define PUMP_COUNT 3
-#define PUMP_PINS 15, 16, 17
-
-#define SWITCH_COUNT 2
-#define SWITCH_PINS 18, 19
-
-#endif
 
 #endif // FUNCTION_CONTROL
 
