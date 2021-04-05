@@ -57,14 +57,17 @@
 
 #ifdef FUNCTION_CONTROL
 
+// R1 R2 R3 R4  R5 R6 R7 R8
+//  4  0  2 15  18  5 17 16
+
 #define VALVE_COUNT 5
-#define VALVE_PINS 9, 11, 12, 13, 14
+#define VALVE_PINS 4, 0, 2, 15, 18
 
 #define PUMP_COUNT 3
-#define PUMP_PINS 15, 16, 17
+#define PUMP_PINS 5, 17, 16
 
 #define SWITCH_COUNT 2
-#define SWITCH_PINS 18, 19
+#define SWITCH_PINS 22, 23
 
 #endif // FUNCTION_CONTROL
 

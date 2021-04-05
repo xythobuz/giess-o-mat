@@ -8,6 +8,19 @@ Plants::Plants(int valve_count, int pump_count, int switch_count) :
         valves(valve_count), pumps(pump_count), switches(switch_count) {
 }
 
+    
+GPIOBank *Plants::getValves(void) {
+    return &valves;
+}
+
+GPIOBank *Plants::getPumps(void) {
+    return &pumps;
+}
+
+GPIOBank *Plants::getSwitches(void) {
+    return &switches;
+}
+
 void Plants::setValvePins(int pins[]) {
     valves.setPinNumbers(pins);
     valves.setOutput();
@@ -32,8 +45,8 @@ void Plants::abort(void) {
 }
 
 Plants::Waterlevel Plants::getWaterlevel(void) {
-    bool low = !switches.getPin(0);
-    bool high = !switches.getPin(1);
+    bool low = switches.getPin(0);
+    bool high = switches.getPin(1);
     
     if ((!low) && (!high)) {
         return empty;

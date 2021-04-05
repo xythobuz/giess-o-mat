@@ -37,6 +37,10 @@ public:
     void stopPlant(int id);
     void stopAllPlants(void);
     
+    GPIOBank *getValves(void);
+    GPIOBank *getPumps(void);
+    GPIOBank *getSwitches(void);
+    
 private:
     GPIOBank valves;
     GPIOBank pumps;

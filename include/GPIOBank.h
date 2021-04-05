@@ -18,6 +18,8 @@ public:
 private:
     int size;
     int *pins;
+    bool *out_state;
+    bool is_output;
 };
 
 #endif // _GPIO_BANK_H_

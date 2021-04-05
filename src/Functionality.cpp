@@ -421,6 +421,10 @@ void control_act_input(int n) {
     sm.input(n);
 }
 
+Plants *get_plants(void) {
+    return &plants;
+}
+
 void control_setup(void) {
     plants.setValvePins(valve_pins);
     plants.setPumpPins(pump_pins);
@@ -521,8 +525,10 @@ void write_to_all(const char *a, const char *b,
     Wire.write((int8_t)num_input);
     Wire.endTransmission();
     
-    wifi_set_message_buffer(a, b, c, d);
     write_lcd_to_serial(a, b, c, d);
+    
+    wifi_set_message_buffer(a, b, c, d);
+    wifi_send_websocket();
 }
 
 #endif // ! FUNCTION_UI

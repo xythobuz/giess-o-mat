@@ -29,6 +29,7 @@ UPDATE_WEB_SERVER server(80);
 WebSocketsServer socket = WebSocketsServer(81);
 SimpleUpdater updater;
 unsigned long last_server_handle_time = 0;
+unsigned long last_websocket_update_time = 0;
 
 String message_buffer_a;
 String message_buffer_b;
@@ -40,6 +41,17 @@ void wifi_set_message_buffer(String a, String b, String c, String d) {
     message_buffer_b = b;
     message_buffer_c = c;
     message_buffer_d = d;
+}
+
+void wifi_schedule_websocket(void) {
+    last_websocket_update_time = 0;
+}
+
+void wifi_send_websocket(void) {
+    String a = message_buffer_a ;
+    String b = message_buffer_b;
+    String c = message_buffer_c;
+    String d = message_buffer_d;
     
     a.replace("\"", "'");
     b.replace("\"", "'");
@@ -47,12 +59,64 @@ void wifi_set_message_buffer(String a, String b, String c, String d) {
     d.replace("\"", "'");
     
     String ws = "{\n";
+    
     ws += "\"a\": \"" + a + "\",\n";
     ws += "\"b\": \"" + b + "\",\n";
     ws += "\"c\": \"" + c + "\",\n";
     ws += "\"d\": \"" + d + "\",\n";
-    ws += "\"state\": \"" + String(control_state_name()) + "\"\n";
+    
+    ws += "\"state\": \"" + String(control_state_name()) + "\",\n";
+    
+    ws += F("\"valves\": [ ");
+    for (int i = 0; i < VALVE_COUNT; i++) {
+        ws += "\"";
+        ws += get_plants()->getValves()->getPin(i) ? "1" : "0";
+        ws += "\"";
+        
+        if (i < (VALVE_COUNT - 1)) {
+            ws += ", ";
+        }
+    }
+    ws += " ],\n";
+    
+    ws += F("\"pumps\": [ ");
+    for (int i = 0; i < PUMP_COUNT; i++) {
+        ws += "\"";
+        ws += get_plants()->getPumps()->getPin(i) ? "1" : "0";
+        ws += "\"";
+        
+        if (i < (PUMP_COUNT - 1)) {
+            ws += ", ";
+        }
+    }
+    ws += " ],\n";
+    
+    ws += F("\"switches\": [ ");
+    for (int i = 0; i < SWITCH_COUNT; i++) {
+        ws += "\"";
+        ws += get_plants()->getSwitches()->getPin(i) ? "1" : "0";
+        ws += "\"";
+        
+        if (i < (SWITCH_COUNT - 1)) {
+            ws += ", ";
+        }
+    }
+    ws += " ],\n";
+    
+    ws += "\"switchstate\": \"";
+    Plants::Waterlevel wl = get_plants()->getWaterlevel();
+    if (wl == Plants::empty) {
+        ws += F("tank empty");
+    } else if (wl == Plants::inbetween) {
+        ws += F("tank half-filled");
+    } else if (wl == Plants::full) {
+        ws += F("tank full");
+    } else {
+        ws += F("invalid sensor state");
+    }
+    ws += "\"\n";
     ws += "}";
+    
     socket.broadcastTXT(ws);
 }
 
@@ -70,18 +134,57 @@ void handleRoot() {
     
     message += F(".ui {\n");
     message += F("width: max-content;\n");
+    message += F("height: max-content;\n");
     message += F("margin-right: 1em;\n");
     message += F("padding: 0 1.0em;\n");
     message += F("border: 1px dashed black;\n");
     message += F("}\n");
     
+    message += F(".io {\n");
+    message += F("width: max-content;\n");
+    message += F("height: max-content;\n");
+    message += F("margin-right: 1em;\n");
+    message += F("padding: 0.8em 1.0em;\n");
+    message += F("border: 1px dashed black;\n");
+    message += F("font-family: monospace;\n");
+    message += F("}\n");
+    
+    message += F(".switch {\n");
+    message += F("width: max-content;\n");
+    message += F("border: 1px solid black;\n");
+    message += F("border-radius: 50%;\n");
+    message += F("padding: 2em;\n");
+    message += F("margin: 1em;\n");
+    message += F("}\n");
+    
+    message += F(".valve {\n");
+    message += F("width: max-content;\n");
+    message += F("border: 1px solid black;\n");
+    message += F("border-radius: 50%;\n");
+    message += F("padding: 2em;\n");
+    message += F("margin: 1em;\n");
+    message += F("}\n");
+    
+    message += F(".pump {\n");
+    message += F("width: max-content;\n");
+    message += F("border: 1px solid black;\n");
+    message += F("border-radius: 50%;\n");
+    message += F("padding: 2em;\n");
+    message += F("margin: 1em;\n");
+    message += F("}\n");
+    
     message += F(".info {\n");
-    message += F("flex-grow: 1;\n");
+    message += F("width: max-content;\n");
+    message += F("height: max-content;\n");
+    message += F("padding: 0 1.0em;\n");
+    message += F("border: 1px dashed black;\n");
+    message += F("font-family: monospace;\n");
     message += F("}\n");
     
     message += F(".pad {\n");
     message += F("background: black;\n");
     message += F("border: 3px solid black;\n");
+    message += F("border-radius: 20px;\n");
     message += F("width: max-content;\n");
     message += F("padding: 1.5em;\n");
     message += F("margin-left: auto;\n");
@@ -90,8 +193,10 @@ void handleRoot() {
     
     message += F(".pad input {\n");
     message += F("background: #fff0cf;\n");
+    message += F("border-radius: 6px;\n");
     message += F("font-weight: bold;\n");
     message += F("font-family: monospace;\n");
+    message += F("font-size: 1.2em;\n");
     message += F("padding: 0.5em 1em;\n");
     message += F("margin: 0.5em;\n");
     message += F("}\n");
@@ -100,7 +205,8 @@ void handleRoot() {
     message += F(".lcd {\n");
     //message += F("background: #9ea18c;\n");
     message += F("background: #9ed18c;\n");
-    message += F("border: 3px solid black;\n");
+    message += F("border: 5px solid black;\n");
+    message += F("border-radius: 10px;\n");
     message += F("width: max-content;\n");
     message += F("padding: 0.65em 1em;\n");
     message += F("box-shadow: inset 0 0 5px 5px rgba(0,0,0,.1);\n");
@@ -111,6 +217,12 @@ void handleRoot() {
     message += F("line-height: 160%;\n");
     message += F("color: #21230e;\n");
     message += F("text-shadow: -1px 2px 1px rgba(0,0,0,.1);\n");
+    message += F("margin-left: auto;\n");
+    message += F("margin-right: auto;\n");
+    message += F("}\n");
+    
+    message += F("#state {\n");
+    message += F("text-align: center;\n");
     message += F("}\n");
     message += F("</style>\n");
     
@@ -148,6 +260,68 @@ void handleRoot() {
     message += F("State: ");
     message += control_state_name();
     message += F("</p></div>\n");
+    
+    message += F("<div class='io'>\n");
+    message += F("Switches: <span id='switchstate'>");
+    
+    Plants::Waterlevel wl = get_plants()->getWaterlevel();
+    if (wl == Plants::empty) {
+        message += F("tank empty");
+    } else if (wl == Plants::inbetween) {
+        message += F("tank half-filled");
+    } else if (wl == Plants::full) {
+        message += F("tank full");
+    } else {
+        message += F("invalid sensor state");
+    }
+    message += F("</span>");
+    
+    message += F("<div class='container'>\n");
+    for (int i = 0; i < SWITCH_COUNT; i++) {
+        message += F("<div class='switch' style='background-color: ");
+        if (get_plants()->getSwitches()->getPin(i)) {
+            message += F("red");
+        } else {
+            message += F("green");
+        }
+        message += F(";'>S");
+        message += String(i + 1);
+        message += F("</div>");
+    }
+    message += F("</div><hr>\n");
+    
+    message += F("Valves:\n");
+    message += F("<div class='container'>\n");
+    for (int i = 0; i < VALVE_COUNT; i++) {
+        message += F("<div class='valve' style='background-color: ");
+        if (get_plants()->getValves()->getPin(i)) {
+            message += F("red");
+        } else {
+            message += F("green");
+        }
+        message += F(";'>V");
+        message += String(i + 1);
+        message += F("</div>");
+    }
+    message += F("</div><hr>\n");
+    
+    message += F("Pumps:\n");
+    message += F("<div class='container'>\n");
+    for (int i = 0; i < PUMP_COUNT; i++) {
+        message += F("<div class='pump' style='background-color: ");
+        if (get_plants()->getPumps()->getPin(i)) {
+            message += F("red");
+        } else {
+            message += F("green");
+        }
+        message += F(";'>P");
+        message += String(i + 1);
+        message += F("</div>");
+    }
+    message += F("</div><hr>\n");
+    message += F("Green means valve is closed / pump is off / switch is not submersed.\n");
+    message += F("<br>\n");
+    message += F("Red means valve is open / pump is running / switch is submersed.</div>\n");
     
     message += F("<div class='info'><p>\n");
     message += F("Version: ");
@@ -214,6 +388,42 @@ void handleRoot() {
     message += F(    "lcd[0].innerHTML = str;\n");
     message += F(    "var state = document.getElementById('state');\n");
     message += F(    "state.innerHTML = \"State: \" + msg.state;\n");
+    
+    message += F(    "for (let i = 0; i < ");
+    message += String(VALVE_COUNT);
+    message += F("; i++) {\n");
+    message += F(       "var valves = document.getElementsByClassName('valve');\n");
+    message += F(       "if (msg.valves[i] == '0') {\n");
+    message += F(           "valves[i].style = 'background-color: green;';\n");
+    message += F(       "} else {\n");
+    message += F(           "valves[i].style = 'background-color: red;';\n");
+    message += F(       "}\n");
+    message += F(    "}\n");
+    
+    message += F(    "for (let i = 0; i < ");
+    message += String(PUMP_COUNT);
+    message += F("; i++) {\n");
+    message += F(       "var pumps = document.getElementsByClassName('pump');\n");
+    message += F(       "if (msg.pumps[i] == '0') {\n");
+    message += F(           "pumps[i].style = 'background-color: green;';\n");
+    message += F(       "} else {\n");
+    message += F(           "pumps[i].style = 'background-color: red;';\n");
+    message += F(       "}\n");
+    message += F(    "}\n");
+    
+    message += F(    "for (let i = 0; i < ");
+    message += String(SWITCH_COUNT);
+    message += F("; i++) {\n");
+    message += F(       "var switches = document.getElementsByClassName('switch');\n");
+    message += F(       "if (msg.switches[i] == '0') {\n");
+    message += F(           "switches[i].style = 'background-color: green;';\n");
+    message += F(       "} else {\n");
+    message += F(           "switches[i].style = 'background-color: red;';\n");
+    message += F(       "}\n");
+    message += F(    "}\n");
+    
+    message += F(    "var switchstate = document.getElementById('switchstate');\n");
+    message += F(    "switchstate.innerHTML = msg.switchstate;\n");
     message += F("};\n");
     
     message += F("var buttons = document.getElementsByTagName('input');\n");
@@ -323,6 +533,11 @@ void wifi_run() {
 #ifdef ARDUINO_ARCH_ESP8266
         MDNS.update();
 #endif // ARDUINO_ARCH_ESP8266
+    }
+    
+    if ((millis() - last_websocket_update_time) >= WEBSOCKET_UPDATE_INTERVAL) {
+        last_websocket_update_time = millis();
+        wifi_send_websocket();
     }
     
     // reset ESP every 6h to be safe
