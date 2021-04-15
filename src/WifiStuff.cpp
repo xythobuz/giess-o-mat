@@ -94,8 +94,22 @@ void wifi_send_status_broadcast(void) {
     
     ws += F("\"switches\": [ ");
     for (int i = 0; i < SWITCH_COUNT; i++) {
+        bool v = get_plants()->getSwitches()->getPin(i);
+        
+#ifdef INVERT_SENSOR_BOTTOM
+        if (i == 0) {
+            v = !v;
+        }
+#endif // INVERT_SENSOR_BOTTOM
+        
+#ifdef INVERT_SENSOR_TOP
+        if (i == 1) {
+            v = !v;
+        }
+#endif // INVERT_SENSOR_TOP
+
         ws += "\"";
-        ws += get_plants()->getSwitches()->getPin(i) ? "1" : "0";
+        ws += v ? "1" : "0";
         ws += "\"";
         
         if (i < (SWITCH_COUNT - 1)) {
@@ -298,7 +312,21 @@ void handleRoot() {
     message += F("<div class='container'>\n");
     for (int i = 0; i < SWITCH_COUNT; i++) {
         message += F("<div class='switch' style='background-color: ");
-        if (get_plants()->getSwitches()->getPin(i)) {
+        bool v = get_plants()->getSwitches()->getPin(i);
+        
+#ifdef INVERT_SENSOR_BOTTOM
+        if (i == 0) {
+            v = !v;
+        }
+#endif // INVERT_SENSOR_BOTTOM
+        
+#ifdef INVERT_SENSOR_TOP
+        if (i == 1) {
+            v = !v;
+        }
+#endif // INVERT_SENSOR_TOP
+        
+        if (v) {
             message += F("red");
         } else {
             message += F("green");

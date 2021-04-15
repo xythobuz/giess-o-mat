@@ -1,6 +1,9 @@
 #include <Arduino.h>
+
 #include "DebugLog.h"
 #include "Plants.h"
+#include "config.h"
+#include "config_pins.h"
     
 // valves: no of plants + 1 for water inlet
 // pumps: no of fertilizers
@@ -48,6 +51,14 @@ void Plants::abort(void) {
 Plants::Waterlevel Plants::getWaterlevel(void) {
     bool low = switches.getPin(0);
     bool high = switches.getPin(1);
+    
+#ifdef INVERT_SENSOR_BOTTOM
+    low = !low;
+#endif // INVERT_SENSOR_BOTTOM
+    
+#ifdef INVERT_SENSOR_TOP
+    high = !high;
+#endif // INVERT_SENSOR_TOP
     
     if ((!low) && (!high)) {
         return empty;
