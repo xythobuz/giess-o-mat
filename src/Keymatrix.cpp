@@ -5,6 +5,10 @@
 
 //#define DEBUG_PRINT_MATRIX_STATE
 
+#ifdef DEBUG_PRINT_MATRIX_STATE
+#include "DebugLog.h"
+#endif // DEBUG_PRINT_MATRIX_STATE
+
 Keymatrix::Event::Event(EventType _type, int _row, int _col) {
     type = _type;
     row = _row;
@@ -119,14 +123,14 @@ void Keymatrix::scan(void) {
     
 #ifdef DEBUG_PRINT_MATRIX_STATE
     for (int i = 0; i < buttons; i++) {
-        Serial.print(pressed[i] ? "1" : "0");
+        debug.print(pressed[i] ? "1" : "0");
         if (i < (buttons - 1)) {
-            Serial.print(" ");
+            debug.print(" ");
         } else {
-            Serial.println();
+            debug.println();
         }
     }
-#endif
+#endif // DEBUG_PRINT_MATRIX_STATE
     
     for (int i = 0; i < buttons; i++) {
         // debounce - compare to previous state

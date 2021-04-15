@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "DebugLog.h"
 #include "Plants.h"
     
 // valves: no of plants + 1 for water inlet
@@ -60,12 +61,12 @@ Plants::Waterlevel Plants::getWaterlevel(void) {
 }
 
 void Plants::openWaterInlet(void) {
-    Serial.println("Plants::openWaterInlet");
+    debug.println("Plants::openWaterInlet");
     valves.setPin(countPlants(), true);
 }
 
 void Plants::closeWaterInlet(void) {
-    Serial.println("Plants::closeWaterInlet");
+    debug.println("Plants::closeWaterInlet");
     valves.setPin(countPlants(), false);
 }
 
@@ -74,8 +75,8 @@ int Plants::countFertilizers(void) {
 }
 
 void Plants::startFertilizer(int id) {
-    Serial.print("Plants::startFertilizer ");
-    Serial.println(id);
+    debug.print("Plants::startFertilizer ");
+    debug.println(id);
     
     if ((id >= 0) && (id < countFertilizers())) {
         pumps.setPin(id, true);
@@ -83,8 +84,8 @@ void Plants::startFertilizer(int id) {
 }
 
 void Plants::stopFertilizer(int id) {
-    Serial.print("Plants::stopFertilizer ");
-    Serial.println(id);
+    debug.print("Plants::stopFertilizer ");
+    debug.println(id);
     
     if ((id >= 0) && (id < countFertilizers())) {
         pumps.setPin(id, false);
@@ -102,8 +103,8 @@ int Plants::countPlants(void) {
 }
 
 void Plants::startPlant(int id) {
-    Serial.print("Plants::startPlant ");
-    Serial.println(id);
+    debug.print("Plants::startPlant ");
+    debug.println(id);
     
     if ((id >= 0) && (id < countPlants())) {
         valves.setPin(id, true);
@@ -111,8 +112,8 @@ void Plants::startPlant(int id) {
 }
 
 void Plants::stopPlant(int id) {
-    Serial.print("Plants::stopPlant ");
-    Serial.println(id);
+    debug.print("Plants::stopPlant ");
+    debug.println(id);
     
     if ((id >= 0) && (id < countPlants())) {
         valves.setPin(id, false);

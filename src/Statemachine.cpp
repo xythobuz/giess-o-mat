@@ -1,4 +1,5 @@
 #include "Plants.h"
+#include "DebugLog.h"
 #include "Statemachine.h"
 #include "config.h"
 
@@ -395,8 +396,8 @@ uint32_t Statemachine::number_input(void) {
     uint32_t n = db.getNumber();
     db.clear();
     
-    Serial.print("Whole number input: ");
-    Serial.println(n);
+    debug.print("Whole number input: ");
+    debug.println(n);
     
     return n;
 }

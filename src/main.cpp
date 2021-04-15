@@ -2,6 +2,7 @@
 
 #include "Functionality.h"
 #include "WifiStuff.h"
+#include "DebugLog.h"
 #include "config.h"
 #include "config_pins.h"
 
@@ -12,36 +13,36 @@ void setup() {
     digitalWrite(BUILTIN_LED_PIN, HIGH);
     
     Serial.begin(115200);
-    Serial.println("Initializing Giess-o-mat");
-    Serial.println("Version: " FIRMWARE_VERSION);
+    debug.println("Initializing Giess-o-mat");
+    debug.println("Version: " FIRMWARE_VERSION);
 
 #ifdef FUNCTION_UI
-    Serial.println("Initializing UI");
+    debug.println("Initializing UI");
     ui_setup();
 #endif // FUNCTION_UI
     
 #ifdef FUNCTION_CONTROL
-    Serial.println("Initializing Control");
+    debug.println("Initializing Control");
     control_setup();
 #endif // FUNCTION_CONTROL
     
 #ifdef PLATFORM_ESP
-    Serial.println("Initializing WiFi");
+    debug.println("Initializing WiFi");
     wifi_setup();
 #endif // PLATFORM_ESP
     
-    Serial.println("Ready, starting main loop");
+    debug.println("Ready, starting main loop");
     digitalWrite(BUILTIN_LED_PIN, LOW);
     
 #ifdef FUNCTION_CONTROL
     
 #ifndef FUNCTION_UI
     // give ui unit some time to initialize
-    Serial.println("Waiting for UI to boot");
+    debug.println("Waiting for UI to boot");
     delay(3000);
 #endif // ! FUNCTION_UI
     
-    Serial.println("Starting state machine");
+    debug.println("Starting state machine");
     control_begin();
     
 #endif // FUNCTION_CONTROL

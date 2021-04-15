@@ -23,6 +23,7 @@
 #include "config_pins.h"
 #include "Functionality.h"
 #include "SimpleUpdater.h"
+#include "DebugLog.h"
 #include "WifiStuff.h"
 
 UPDATE_WEB_SERVER server(80);
@@ -47,7 +48,7 @@ void wifi_schedule_websocket(void) {
     last_websocket_update_time = 0;
 }
 
-void wifi_send_websocket(void) {
+void wifi_send_status_broadcast(void) {
     String a = message_buffer_a ;
     String b = message_buffer_b;
     String c = message_buffer_c;
@@ -117,7 +118,11 @@ void wifi_send_websocket(void) {
     ws += "\"\n";
     ws += "}";
     
-    socket.broadcastTXT(ws);
+    wifi_send_websocket(ws);
+}
+
+void wifi_send_websocket(String s) {
+    socket.broadcastTXT(s);
 }
 
 void handleRoot() {
@@ -179,6 +184,20 @@ void handleRoot() {
     message += F("padding: 0 1.0em;\n");
     message += F("border: 1px dashed black;\n");
     message += F("font-family: monospace;\n");
+    message += F("}\n");
+    
+    message += F(".log {\n");
+    message += F("max-height: 300px;\n");
+    message += F("padding: 0 1.0em;\n");
+    message += F("margin: 1em 0;\n");
+    message += F("border: 1px dashed black;\n");
+    message += F("font-family: monospace;\n");
+    message += F("overflow-y: scroll;\n");
+    message += F("word-break: break-all;\n");
+    message += F("}\n");
+    
+    message += F("#logbuf {\n");
+    message += F("white-space: break-spaces;\n");
     message += F("}\n");
     
     message += F(".pad {\n");
@@ -376,12 +395,26 @@ void handleRoot() {
     message += F("<p>Try <a href='/update'>/update</a> for OTA firmware updates!</p>\n");
     message += F("<p>Made by <a href='https://xythobuz.de'>xythobuz</a></p>\n");
     message += F("<p><a href='https://git.xythobuz.de/thomas/giess-o-mat'>Project Repository</a></p>\n");
-    message += F("</div>\n");
-    message += F("</div></body>\n");
+    message += F("</div></div>\n");
+    
+    message += F("<div class='log'><pre id='logbuf'>\n");
+    message += debug.getBuffer();
+    message += F("</pre></div>\n");
+    message += F("</body>\n");
     
     message += F("<script type='text/javascript'>\n");
     message += F("var socket = new WebSocket('ws://' + window.location.hostname + ':81');\n");
     message += F("socket.onmessage = function(e) {\n");
+    message += F(    "if (e.data.startsWith('log:')) {\n");
+    message += F(        "var log = document.getElementById('logbuf');\n");
+    message += F(        "var div = document.getElementsByClassName('log')[0];\n");
+    message += F(        "log.innerHTML += e.data.substring(4);\n");
+    message += F(        "if (log.innerHTML.length > (1024 * 1024)) {\n");
+    message += F(            "log.innerHTML = log.innerHTML.substring(1024 * 1024);\n");
+    message += F(        "}\n");
+    message += F(        "div.scrollTop = div.scrollHeight;\n");
+    message += F(        "return;\n");
+    message += F(    "}\n");
     message += F(    "var msg = JSON.parse(e.data);\n");
     message += F(    "var str = msg.a + '\\n' + msg.b + '\\n' + msg.c + '\\n' + msg.d;\n");
     message += F(    "console.log(str);\n");
@@ -462,29 +495,29 @@ void wifi_setup() {
 #if defined(ARDUINO_ARCH_ESP8266)
 
     // Connect to WiFi AP
-    Serial.println("WiFi: initializing");
+    debug.println("WiFi: initializing");
     WiFi.hostname(hostname);
     WiFi.mode(WIFI_STA);
     
-    Serial.print("WiFi: connecting");
+    debug.print("WiFi: connecting");
     WiFi.begin(WIFI_SSID, WIFI_PW);
     while (WiFi.status() != WL_CONNECTED) {
-        Serial.print(".");
+        debug.print(".");
         delay(LED_CONNECT_BLINK_INTERVAL);
         digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
-    Serial.println();
+    debug.println();
     
 #elif defined(ARDUINO_ARCH_ESP32)
 
     // Set hostname workaround
-    Serial.println("WiFi: set hostname");
+    debug.println("WiFi: set hostname");
     WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(hostname.c_str());
     
     // Workaround for WiFi connecting only every 2nd reset
     // https://github.com/espressif/arduino-esp32/issues/2501#issuecomment-513602522
-    Serial.println("WiFi: connection work-around");
+    debug.println("WiFi: connection work-around");
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
         if (info.disconnected.reason == 202) {
             esp_sleep_enable_timer_wakeup(10);
@@ -494,25 +527,25 @@ void wifi_setup() {
     }, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
 
     // Connect to WiFi AP
-    Serial.println("WiFi: SSID=" WIFI_SSID);
-    Serial.print("WiFi: connecting");
+    debug.println("WiFi: SSID=" WIFI_SSID);
+    debug.print("WiFi: connecting");
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PW);
     while (WiFi.status() != WL_CONNECTED) {
-        Serial.print(".");
+        debug.print(".");
         delay(LED_CONNECT_BLINK_INTERVAL);
         digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
-    Serial.println();
+    debug.println();
     
     // Set hostname workaround
-    Serial.println("WiFi: set hostname work-around");
+    debug.println("WiFi: set hostname work-around");
     WiFi.setHostname(hostname.c_str());
 
 #endif
 
     // Setup HTTP Server
-    Serial.println("WiFi: initializing HTTP server");
+    debug.println("WiFi: initializing HTTP server");
     MDNS.begin(hostname.c_str());
     updater.setup(&server);
     server.on("/", handleRoot);
@@ -522,7 +555,7 @@ void wifi_setup() {
     socket.begin();
     socket.onEvent(webSocketEvent);
     
-    Serial.println("WiFi: setup done");
+    debug.println("WiFi: setup done");
 }
 
 void wifi_run() {
@@ -538,7 +571,7 @@ void wifi_run() {
     
     if ((millis() - last_websocket_update_time) >= WEBSOCKET_UPDATE_INTERVAL) {
         last_websocket_update_time = millis();
-        wifi_send_websocket();
+        wifi_send_status_broadcast();
     }
     
     // reset ESP every 6h to be safe

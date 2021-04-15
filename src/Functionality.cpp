@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "config_pins.h"
+#include "DebugLog.h"
 #include "Functionality.h"
 
 #ifdef FUNCTION_UI
@@ -199,7 +200,7 @@ void ui_i2c_request(void) {
         return;
     }
     
-    Serial.print("ui_i2c_request: ");
+    debug.print("ui_i2c_request: ");
     
     while (!keybuffer.isEmpty()) {
         int n = keybuffer.shift();
@@ -211,13 +212,13 @@ void ui_i2c_request(void) {
             n = -3;
         }
         
-        Serial.print(n);
-        Serial.print(", ");
+        debug.print(n);
+        debug.print(", ");
         
         Wire.write(n);
     }
     
-    Serial.println();
+    debug.println();
 }
 
 void ui_i2c_receive(int count) {
@@ -231,27 +232,27 @@ void ui_i2c_receive(int count) {
     }
     
     if (count <= 0) {
-        Serial.println("ui_i2c_receive: count is 0");
+        debug.println("ui_i2c_receive: count is 0");
         return;
     }
     
     if (buff[0] == 0x01) {
         if (count < 3) {
-            Serial.println("ui_i2c_receive: blink lcd too short");
+            debug.println("ui_i2c_receive: blink lcd too short");
             return;
         }
         
         int n = buff[1];
         int wait = buff[2] * 10;
         
-        Serial.println("ui_i2c_receive: blink lcd command");
+        debug.println("ui_i2c_receive: blink lcd command");
         blink_lcd(n, wait);
     } else if (buff[0] == 0x02) {
-        Serial.println("ui_i2c_receive: backspace command");
+        debug.println("ui_i2c_receive: backspace command");
         backspace();
     } else if (buff[0] == 0x03) {
         if (count < 3) {
-            Serial.println("ui_i2c_receive: display far too short");
+            debug.println("ui_i2c_receive: display far too short");
             return;
         }
         
@@ -262,22 +263,22 @@ void ui_i2c_receive(int count) {
             s += buff[3 + i];
         }
         
-        Serial.println("ui_i2c_receive: display command");
+        debug.println("ui_i2c_receive: display command");
         linebuffer[line] = s;
     } else if (buff[0] == 0x04) {
         if (count < 2) {
-            Serial.println("ui_i2c_receive: num input too short");
+            debug.println("ui_i2c_receive: num input too short");
             return;
         }
         
         int8_t num_input = buff[1];
         
-        Serial.println("ui_i2c_receive: num input");
+        debug.println("ui_i2c_receive: num input");
         write_to_all(linebuffer[0].c_str(), linebuffer[1].c_str(),
                      linebuffer[2].c_str(), linebuffer[3].c_str(),
                      num_input);
     } else {
-        Serial.println("ui_i2c_receive: unknown command");
+        debug.println("ui_i2c_receive: unknown command");
         return;
     }
 }
@@ -287,7 +288,7 @@ void ui_i2c_receive(int count) {
 void ui_setup(void) {
     keys.setPins(keymatrix_pins);
     
-    Serial.println("Setting up LCD, please wait");
+    debug.println("Setting up LCD, please wait");
     delay(1000); // give LCD some time to boot
     lcd.init();
     
@@ -300,7 +301,7 @@ void ui_setup(void) {
 #endif // DEBUG_WAIT_FOR_SERIAL_CONN
     
 #ifndef FUNCTION_CONTROL
-    Serial.println("Initializing I2C Slave");
+    debug.println("Initializing I2C Slave");
     Wire.begin(OWN_I2C_ADDRESS);
     Wire.onReceive(ui_i2c_receive);
     Wire.onRequest(ui_i2c_request);
@@ -330,12 +331,12 @@ void input_keypad(void) {
             }
             
             int n = ke.getNum();
-            Serial.print("Got keypad input: \"");
+            debug.print("Got keypad input: \"");
             
             if (n < 0) {
-                Serial.print((n == -1) ? '*' : '#');
+                debug.print((n == -1) ? '*' : '#');
             } else {
-                Serial.print(n);
+                debug.print(n);
                 
                 if (doing_multi_input) {
                     char s[2] = { (char)(n + '0'), '\0' };
@@ -343,7 +344,7 @@ void input_keypad(void) {
                 }
             }
             
-            Serial.println("\"");
+            debug.println("\"");
             
             blink_lcd(1, 100);
             handle_input(n);
@@ -432,12 +433,12 @@ void control_setup(void) {
     
 #ifndef FUNCTION_UI
     
-    Serial.println("Initializing I2C Master");
+    debug.println("Initializing I2C Master");
     Wire.setClock(I2C_BUS_SPEED);
     Wire.begin();
     
 #ifdef DEBUG_WAIT_FOR_SERIAL_CONN
-    Serial.println("Wait for Serial");
+    debug.println("Wait for Serial");
     while (!Serial);
 #endif // DEBUG_WAIT_FOR_SERIAL_CONN
     
@@ -455,6 +456,9 @@ void control_run(void) {
     while (Wire.available()) {
         char c = Wire.read();
         
+            debug.print("control_run: got input '");
+            debug.print(c);
+            debug.println("'");
         // for some reason it seems as if we always get -1 here,
         // so we cant send our input (-2 to 9) as is.
         // so -4 is no-data, -3 is -1, and the rest as-is.
@@ -463,9 +467,6 @@ void control_run(void) {
                 c = -1;
             }
         
-            Serial.print("control_run: got input '");
-            Serial.print((int)c);
-            Serial.println("'");
         
             sm.input(c);
         }
@@ -481,7 +482,7 @@ void control_run(void) {
 #ifndef FUNCTION_UI
 
 void blink_lcd(int n, int wait) {
-    Serial.println("blink_lcd i2c");
+    debug.println("blink_lcd i2c");
     
     Wire.beginTransmission(OWN_I2C_ADDRESS);
     Wire.write(0x01); // blink command
@@ -491,7 +492,7 @@ void blink_lcd(int n, int wait) {
 }
 
 void backspace(void) {
-    Serial.println("backspace i2c");
+    debug.println("backspace i2c");
     
     Wire.beginTransmission(OWN_I2C_ADDRESS);
     Wire.write(0x02); // backspace command
@@ -502,7 +503,7 @@ void write_to_all(const char *a, const char *b,
                   const char *c, const char *d, int num_input) {
     const char *lines[4] = { a, b, c, d };
     
-    Serial.println("write_to_all i2c");
+    debug.println("write_to_all i2c");
     
     for (int i = 0; i < 4; i++) {
         Wire.beginTransmission(OWN_I2C_ADDRESS);
@@ -527,8 +528,10 @@ void write_to_all(const char *a, const char *b,
     
     write_lcd_to_serial(a, b, c, d);
     
+#ifdef PLATFORM_ESP
     wifi_set_message_buffer(a, b, c, d);
-    wifi_send_websocket();
+    wifi_send_status_broadcast();
+#endif // PLATFORM_ESP
 }
 
 #endif // ! FUNCTION_UI
