@@ -69,6 +69,9 @@
 #define SWITCH_COUNT 2
 #define SWITCH_PINS 22, 23
 
+#define I2C_SDA_PIN 21
+#define I2C_SCL_PIN 22
+
 #endif // FUNCTION_CONTROL
 
 #endif // PLATFORM_ESP

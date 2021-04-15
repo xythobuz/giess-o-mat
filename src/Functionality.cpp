@@ -436,7 +436,12 @@ void control_setup(void) {
     
     debug.println("Initializing I2C Master");
     Wire.setClock(I2C_BUS_SPEED);
+    
+#if defined(I2C_SDA_PIN) && defined(I2C_SCL_PIN)
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+#else
     Wire.begin();
+#endif // defined(I2C_SDA_PIN) && defined(I2C_SCL_PIN)
     
 #ifdef DEBUG_WAIT_FOR_SERIAL_CONN
     debug.println("Wait for Serial");
