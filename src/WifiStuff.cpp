@@ -49,6 +49,10 @@ void wifi_schedule_websocket(void) {
 }
 
 void wifi_send_status_broadcast(void) {
+    if (socket.connectedClients() <= 0) {
+        return;
+    }
+    
     String a = message_buffer_a ;
     String b = message_buffer_b;
     String c = message_buffer_c;
