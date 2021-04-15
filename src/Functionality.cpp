@@ -196,7 +196,7 @@ void input_serial(void) {
 
 void ui_i2c_request(void) {
     if (keybuffer.isEmpty()) {
-        Wire.write(-4);
+        Wire.write(252);
         return;
     }
     
@@ -205,11 +205,12 @@ void ui_i2c_request(void) {
     while (!keybuffer.isEmpty()) {
         int n = keybuffer.shift();
         
-        // for some reason it seems as if we always get -1 here,
-        // so we cant send our input (-2 to 9) as is.
-        // so -4 is no-data, -3 is -1, and the rest as-is.
         if (n == -1) {
-            n = -3;
+            n = 254;
+        } else if (n == -2) {
+            n = 253;
+        } else if ((n < 0) || (n > 9)) {
+            continue;
         }
         
         debug.print(n);
@@ -460,19 +461,18 @@ void control_run(void) {
     
     Wire.requestFrom(OWN_I2C_ADDRESS, I2C_BUF_SIZE);
     while (Wire.available()) {
-        char c = Wire.read();
+        int c = Wire.read();
         
+        if (((c >= 0) && (c <= 9)) || (c == 254) || (c == 253)) {
             debug.print("control_run: got input '");
             debug.print(c);
             debug.println("'");
-        // for some reason it seems as if we always get -1 here,
-        // so we cant send our input (-2 to 9) as is.
-        // so -4 is no-data, -3 is -1, and the rest as-is.
-        if ((c >= -3) && (c <= 9) && (c != -1)) {
-            if (c == -3) {
+            
+            if (c == 254) {
                 c = -1;
+            } else if (c == 253) {
+                c = -2;
             }
-        
         
             sm.input(c);
         }
