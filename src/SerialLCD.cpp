@@ -1,3 +1,5 @@
+// see https://github.com/sparkfun/SparkFun_SerLCD_Arduino_Library
+
 #include <Arduino.h>
 #include "SerialLCD.h"
 
@@ -83,6 +85,20 @@ void SerialLCD::position(int line, int col) {
     delay(LCD_DELAY);
 }
 
+void SerialLCD::saveSplash(void) {
+    lcd->write(0x7C);
+    lcd->write(0x0A);
+}
+
+void SerialLCD::enableSplash(void) {
+    lcd->write(0x7C);
+    lcd->write(0x30);
+}
+
+void SerialLCD::disableSplash(void) {
+    lcd->write(0x7C);
+    lcd->write(0x31);
+}
 void SerialLCD::write(const char *text) {
     lcd->print(text);
     delay(LCD_DELAY);

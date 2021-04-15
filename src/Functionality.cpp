@@ -291,6 +291,7 @@ void ui_setup(void) {
     debug.println("Setting up LCD, please wait");
     delay(1000); // give LCD some time to boot
     lcd.init();
+    lcd.disableSplash();
     
 #ifdef DEBUG_WAIT_FOR_SERIAL_CONN
     lcd.write(0, "Waiting for serial");

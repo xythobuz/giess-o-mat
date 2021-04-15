@@ -20,6 +20,10 @@ public:
     void clear(void);
     void setBacklight(uint8_t val);
     
+    void saveSplash(void);
+    void enableSplash(void);
+    void disableSplash(void);
+    
     // 0 no cursor, 1 underline, 2 blinking, 3 both
     void cursor(int style);
     
