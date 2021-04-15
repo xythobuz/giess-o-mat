@@ -378,6 +378,12 @@ void handleRoot() {
     message += F("Version: ");
     message += FIRMWARE_VERSION;
     message += F("\n<br>\n");
+    message += F("Build Date: ");
+    message += __DATE__;
+    message += F("\n<br>\n");
+    message += F("Build Time: ");
+    message += __TIME__;
+    message += F("\n</p><p>\n");
     message += F("MAC: ");
     message += WiFi.macAddress();
     message += F("\n</p>\n");
@@ -491,6 +497,8 @@ void handleRoot() {
     message += F(    "var switchstate = document.getElementById('switchstate');\n");
     message += F(    "switchstate.innerHTML = msg.switchstate;\n");
     message += F("};\n");
+    message += F("var hist = document.getElementsByClassName('log')[0];\n");
+    message += F("hist.scrollTop = hist.scrollHeight;\n");
     
     message += F("var buttons = document.getElementsByTagName('input');\n");
     message += F("for (let i = 0; i < buttons.length; i++) {\n");
