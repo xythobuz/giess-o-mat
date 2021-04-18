@@ -25,12 +25,15 @@
 
 #ifdef FUNCTION_CONTROL
 
+// out 1, out 2, out 3, out 4, in
 #define VALVE_COUNT 5
 #define VALVE_PINS 10, 11, 12, 14, 15
 
+// a, b, c
 #define PUMP_COUNT 3
 #define PUMP_PINS 16, 17, 18
 
+// bottom, top
 #define SWITCH_COUNT 2
 #define SWITCH_PINS 19, 20
 
@@ -57,17 +60,17 @@
 
 #ifdef FUNCTION_CONTROL
 
-// R1 R2 R3 R4  R5 R6 R7 R8
-//  4  0  2 15  18  5 17 16
-
+// out 1, out 2, out 3, out 4, in
 #define VALVE_COUNT 5
-#define VALVE_PINS 4, 0, 2, 15, 18
+#define VALVE_PINS 27, 14, 5, 18, 15
 
+// a, b, c
 #define PUMP_COUNT 3
-#define PUMP_PINS 5, 17, 16
+#define PUMP_PINS 2, 0, 4
 
+// bottom, top
 #define SWITCH_COUNT 2
-#define SWITCH_PINS 22, 23
+#define SWITCH_PINS 26, 25
 
 #define I2C_SDA_PIN 21
 #define I2C_SCL_PIN 22

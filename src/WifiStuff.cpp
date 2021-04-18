@@ -37,6 +37,45 @@ String message_buffer_b;
 String message_buffer_c;
 String message_buffer_d;
 
+//#define ENABLE_GPIO_TEST
+#ifdef ENABLE_GPIO_TEST
+
+#define GPIO_TEST_INTERVAL 4000
+#define GPIO_TEST_DELAY 200
+static bool runningGpioTest = false;
+static bool gpioTestState = false;
+unsigned long lastGpioTime = 0;
+
+void runGpioTest(bool state) {
+    lastGpioTime = millis();
+    
+    for (int i = 0; i < VALVE_COUNT; i++) {
+        get_plants()->getValves()->setPin(i, state);
+        delay(GPIO_TEST_DELAY);
+    }
+    
+    for (int i = 0; i < PUMP_COUNT; i++) {
+        get_plants()->getPumps()->setPin(i, state);
+        if (i < (PUMP_COUNT - 1)) {
+            delay(GPIO_TEST_DELAY);
+        }
+    }
+}
+
+void handleGpioTest() {
+    runningGpioTest = !runningGpioTest;
+    gpioTestState = runningGpioTest;
+    
+    String message = F("GPIOs turned ");
+    message += runningGpioTest ? "on" : "off";
+
+    server.send(200, "text/html", message);
+    
+    runGpioTest(gpioTestState);
+}
+
+#endif // ENABLE_GPIO_TEST
+
 void wifi_set_message_buffer(String a, String b, String c, String d) {
     message_buffer_a = a;
     message_buffer_b = b;
@@ -433,6 +472,11 @@ void handleRoot() {
     message += F("<p>Try <a href='/update'>/update</a> for OTA firmware updates!</p>\n");
     message += F("<p>Made by <a href='https://xythobuz.de'>xythobuz</a></p>\n");
     message += F("<p><a href='https://git.xythobuz.de/thomas/giess-o-mat'>Project Repository</a></p>\n");
+    
+#ifdef ENABLE_GPIO_TEST
+    message += F("<p><a href='/gpiotest'>GPIO Test</a></p>\n");
+#endif // ENABLE_GPIO_TEST
+    
     message += F("</div></div>\n");
     
     message += F("<div class='log'><pre id='logbuf'>\n");
@@ -589,6 +633,11 @@ void wifi_setup() {
     MDNS.begin(hostname.c_str());
     updater.setup(&server);
     server.on("/", handleRoot);
+    
+#ifdef ENABLE_GPIO_TEST
+    server.on("/gpiotest", handleGpioTest);
+#endif // ENABLE_GPIO_TEST
+    
     server.begin();
     MDNS.addService("http", "tcp", 80);
     
@@ -618,6 +667,13 @@ void wifi_run() {
     if (millis() >= (6 * 60 * 60 * 1000)) {
         ESP.restart();
     }
+    
+#ifdef ENABLE_GPIO_TEST
+    if (runningGpioTest && ((millis() - lastGpioTime) >= GPIO_TEST_INTERVAL)) {
+        gpioTestState = !gpioTestState;
+        runGpioTest(gpioTestState);
+    }
+#endif // ENABLE_GPIO_TEST
 }
 
 #endif // PLATFORM_ESP
