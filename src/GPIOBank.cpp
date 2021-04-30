@@ -6,6 +6,8 @@
 #include "WifiStuff.h"
 #endif // PLATFORM_ESP
 
+//#define GPIO_HIGH_AS_INPUT
+
 GPIOBank::GPIOBank(int _size) {
     size = _size;
     pins = new int[size];
@@ -26,7 +28,12 @@ void GPIOBank::setPinNumbers(int _pins[]) {
 
 void GPIOBank::setOutput(void) {
     for (int i = 0; i < size; i++) {
+#ifdef GPIO_HIGH_AS_INPUT
         pinMode(pins[i], INPUT);
+#else
+        pinMode(pins[i], OUTPUT);
+        digitalWrite(pins[i], HIGH);
+#endif
         out_state[i] = true;
     }
     is_output = true;
@@ -53,14 +60,17 @@ void GPIOBank::setPin(int n, bool state) {
     }
     
     if ((n >= 0) && (n < size)) {
-        //digitalWrite(pins[n], (!state) ? HIGH : LOW);
-        
+#ifdef GPIO_HIGH_AS_INPUT
         if (state) {
             pinMode(pins[n], OUTPUT);
             digitalWrite(pins[n], LOW);
         } else {
             pinMode(pins[n], INPUT);
         }
+#else
+        digitalWrite(pins[n], (!state) ? HIGH : LOW);
+#endif
+
         out_state[n] = !state;
         
 #ifdef PLATFORM_ESP
