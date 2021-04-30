@@ -432,6 +432,21 @@ void Statemachine::act(void) {
         }
     }
     
+    if ((state == menu_valves_run) && (selected_id <= plants.countPlants())) {
+        // check water level state
+        auto wl = plants.getWaterlevel();
+        if (wl == Plants::empty) {
+            plants.abort();
+            stop_time = millis();
+            switch_to(menu_valves_done);
+        } else if (wl == Plants::invalid) {
+            plants.abort();
+            error_condition = "Invalid sensor state";
+            state = menu_valves;
+            switch_to(error);
+        }
+    }
+    
     if ((state == auto_fert_run) || (state == auto_tank_run)) {
         unsigned long runtime = millis() - start_time;
         if ((runtime / 1000UL) >= selected_time) {
