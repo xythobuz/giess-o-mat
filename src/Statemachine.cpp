@@ -417,6 +417,7 @@ void Statemachine::act(void) {
         }
     }
     
+#ifdef CHECK_SENSORS_VALVE_PUMP_MENU
     if ((state == menu_pumps_run) || ((state == menu_valves_run) && (selected_id == (plants.countPlants() + 1)))) {
         // check water level state
         auto wl = plants.getWaterlevel();
@@ -446,6 +447,7 @@ void Statemachine::act(void) {
             switch_to(error);
         }
     }
+#endif
     
     if ((state == auto_fert_run) || (state == auto_tank_run)) {
         unsigned long runtime = millis() - start_time;
