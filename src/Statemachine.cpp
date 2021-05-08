@@ -272,7 +272,7 @@ void Statemachine::input(int n) {
             
             selected_time = number_input();
             
-            if ((selected_time <= 0) || (selected_time > 120)) {
+            if ((selected_time <= 0) || (selected_time > MAX_PUMP_RUNTIME)) {
                 error_condition = "Invalid time range!";
                 switch_to(error);
             } else {
@@ -354,7 +354,7 @@ void Statemachine::input(int n) {
             
             selected_time = number_input();
             
-            if ((selected_time <= 0) || (selected_time > 120)) {
+            if ((selected_time <= 0) || (selected_time > MAX_VALVE_RUNTIME)) {
                 error_condition = "Invalid time range!";
                 switch_to(error);
             } else {
@@ -436,7 +436,7 @@ void Statemachine::act(void) {
         }
     }
     
-#ifdef CHECK_SENSORS_VALVE_PUMP_MENU
+#ifdef CHECK_SENSORS_VALVE_PUMP_MENU_FULL
     if ((state == menu_pumps_run) || ((state == menu_valves_run) && (selected_id == (plants.countPlants() + 1)))) {
         // check water level state
         auto wl = plants.getWaterlevel();
@@ -451,7 +451,9 @@ void Statemachine::act(void) {
             switch_to(error);
         }
     }
+#endif // CHECK_SENSORS_VALVE_PUMP_MENU_FULL
     
+#ifdef CHECK_SENSORS_VALVE_PUMP_MENU_EMPTY
     if ((state == menu_valves_run) && (selected_id <= plants.countPlants())) {
         // check water level state
         auto wl = plants.getWaterlevel();
@@ -466,7 +468,7 @@ void Statemachine::act(void) {
             switch_to(error);
         }
     }
-#endif
+#endif // CHECK_SENSORS_VALVE_PUMP_MENU_EMPTY
     
     if ((state == auto_fert_run) || (state == auto_tank_run)) {
         unsigned long runtime = millis() - start_time;
