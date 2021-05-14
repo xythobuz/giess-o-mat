@@ -231,9 +231,9 @@ void Statemachine::input(int n) {
             }
         }
     } else if (state == auto_plant_run) {
-            plants.abort();
-            stop_time = millis();
-            switch_to(auto_done);
+        plants.abort();
+        stop_time = millis();
+        switch_to(auto_done);
     } else if (state == auto_done) {
         switch_to(auto_mode);
     } else if (state == menu_pumps) {
@@ -564,7 +564,7 @@ void Statemachine::switch_to(States s) {
               -1);
     } else if (s == auto_fert_run) {
         unsigned long runtime = millis() - start_time;
-        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
         
         unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
         String b;
@@ -579,7 +579,7 @@ void Statemachine::switch_to(States s) {
               -1);
     } else if (s == auto_tank_run) {
         unsigned long runtime = millis() - start_time;
-        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
         
         unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
         String b;
@@ -602,7 +602,7 @@ void Statemachine::switch_to(States s) {
               3);
     } else if (s == auto_plant_run) {
         unsigned long runtime = millis() - start_time;
-        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
         
         unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
         String b;
@@ -650,7 +650,7 @@ void Statemachine::switch_to(States s) {
               -1);
     } else if (s == menu_pumps_run) {
         unsigned long runtime = millis() - start_time;
-        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
         
         unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
         String b;
@@ -698,7 +698,7 @@ void Statemachine::switch_to(States s) {
               -1);
     } else if (s == menu_valves_run) {
         unsigned long runtime = millis() - start_time;
-        String a = String("Runtime: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
         
         unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
         String b;
