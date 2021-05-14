@@ -29,11 +29,11 @@
 #define DISPLAY_BACKLIGHT_TIMEOUT (5UL * 60UL * 1000UL)
 
 // in seconds
-#define MAX_TANK_FILL_TIME 30
+#define MAX_TANK_FILL_TIME (67 + 3)
 #define AUTO_PUMP_RUNTIME 5
-#define MAX_AUTO_PLANT_RUNTIME (10 * 60)
+#define MAX_AUTO_PLANT_RUNTIME (30 * 60)
 #define MAX_PUMP_RUNTIME 30
-#define MAX_VALVE_RUNTIME (10 * 60)
+#define MAX_VALVE_RUNTIME (45 * 60)
 
 // Sketch version
 #define FIRMWARE_VERSION "0.2"
