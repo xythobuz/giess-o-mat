@@ -99,7 +99,7 @@ const char *Statemachine::getStateName(void) {
 }
 
 Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
-        : db(7) {
+        : db(7), selected_plants(plants.countPlants()) {
     state = init;
     old_state = init;
     print = _print;
@@ -150,6 +150,7 @@ void Statemachine::input(int n) {
                 switch_to(error);
             }
         } else if (n == 3) {
+            selected_plants.clear();
             switch_to(auto_plant);
         } else if ((n == -1) || (n == -2)) {
             switch_to(menu);
@@ -192,18 +193,15 @@ void Statemachine::input(int n) {
             }
         } else if (n == -2) {
             if (!db.hasDigits()) {
-                return;
-            }
-            
-            selected_id = number_input();
-            
-            if ((selected_id <= 0) || (selected_id > plants.countPlants())) {
-                error_condition = "Invalid plant ID!";
-                switch_to(error);
-            } else {
                 auto wl = plants.getWaterlevel();
                 if ((wl != Plants::empty) && (wl != Plants::invalid)) {
-                    plants.startPlant(selected_id - 1);
+                    for (int i = 0; i < plants.countPlants(); i++) {
+                        if (selected_plants.isSet(i)) {
+                            plants.startPlant(i);
+                        }
+                    }
+                    selected_plants.clear();
+                    
                     selected_time = MAX_AUTO_PLANT_RUNTIME;
                     start_time = millis();
                     switch_to(auto_plant_run);
@@ -214,6 +212,15 @@ void Statemachine::input(int n) {
                     error_condition = "Invalid sensor state";
                     state = auto_mode;
                     switch_to(error);
+                }
+            } else {
+                selected_id = number_input();
+                if ((selected_id <= 0) || (selected_id > plants.countPlants())) {
+                    error_condition = "Invalid plant ID!";
+                    switch_to(error);
+                } else {
+                    selected_plants.set(selected_id - 1);
+                    switch_to(auto_plant);
                 }
             }
         } else {
@@ -589,7 +596,7 @@ void Statemachine::switch_to(States s) {
         String a = String("(Input 1 to ") + String(plants.countPlants()) + String(")");
         
         print("--- Select Plant ---",
-              "Which plant to water",
+              "Leave empty if done!",
               a.c_str(),
               "Plant: ",
               3);

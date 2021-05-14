@@ -21,6 +21,7 @@
 #define _STATEMACHINE_H_
 
 #include <Arduino.h>
+#include "BoolField.h"
 
 #define stringify( name ) # name
 
@@ -95,6 +96,7 @@ private:
     print_fn print;
     backspace_fn backspace;
     
+    BoolField selected_plants;
     uint32_t selected_id; // pump or valve id
     uint32_t selected_time; // runtime
     unsigned long start_time, stop_time, last_animation_time;
