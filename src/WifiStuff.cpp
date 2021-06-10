@@ -56,14 +56,18 @@ String message_buffer_b;
 String message_buffer_c;
 String message_buffer_d;
 
-//#define ENABLE_GPIO_TEST
 #ifdef ENABLE_GPIO_TEST
-
-#define GPIO_TEST_INTERVAL 4000
-#define GPIO_TEST_DELAY 200
 static bool runningGpioTest = false;
 static bool gpioTestState = false;
 unsigned long lastGpioTime = 0;
+#endif // ENABLE_GPIO_TEST
+
+#ifdef ENABLE_INFLUXDB_LOGGING
+#include <InfluxDb.h>
+Influxdb influx(INFLUXDB_HOST, INFLUXDB_PORT);
+#endif // ENABLE_INFLUXDB_LOGGING
+
+#ifdef ENABLE_GPIO_TEST
 
 void runGpioTest(bool state) {
     lastGpioTime = millis();
@@ -94,6 +98,21 @@ void handleGpioTest() {
 }
 
 #endif // ENABLE_GPIO_TEST
+
+bool wifi_write_database(int duration, const char *type, int id) {
+    bool success = false;
+
+#ifdef ENABLE_INFLUXDB_LOGGING
+    InfluxData measurement(type);
+    measurement.addTag("version", FIRMWARE_VERSION);
+    measurement.addTag("device", WiFi.macAddress());
+    measurement.addTag("id", String(id));
+    measurement.addValue("duration", duration);
+    success = influx.write(measurement);
+#endif // ENABLE_INFLUXDB_LOGGING
+
+    return success;
+}
 
 void wifi_set_message_buffer(String a, String b, String c, String d) {
     message_buffer_a = a;
@@ -488,6 +507,20 @@ void handleRoot() {
     
 #endif
 
+    message += F("<p>\n");
+#ifdef ENABLE_INFLUXDB_LOGGING
+    message += F("InfluxDB: ");
+    message += INFLUXDB_DATABASE;
+    message += F(" @ ");
+    message += INFLUXDB_HOST;
+    message += F(":");
+    message += String(INFLUXDB_PORT);
+    message += F("\n");
+#else
+    message += F("InfluxDB logging not enabled!\n");
+#endif
+    message += F("</p>\n");
+
     message += F("<p>Try <a href='/update'>/update</a> for OTA firmware updates!</p>\n");
     message += F("<p>Made by <a href='https://xythobuz.de'>xythobuz</a></p>\n");
     message += F("<p><a href='https://git.xythobuz.de/thomas/giess-o-mat'>Project Repository</a></p>\n");
@@ -646,6 +679,12 @@ void wifi_setup() {
     WiFi.setHostname(hostname.c_str());
 
 #endif
+
+#ifdef ENABLE_INFLUXDB_LOGGING
+    // Setup InfluxDB Client
+    debug.println("WiFi: set InfluxDB database");
+    influx.setDb(INFLUXDB_DATABASE);
+#endif // ENABLE_INFLUXDB_LOGGING
 
     // Setup HTTP Server
     debug.println("WiFi: initializing HTTP server");

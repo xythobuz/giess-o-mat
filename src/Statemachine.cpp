@@ -19,6 +19,7 @@
 
 #include "Plants.h"
 #include "DebugLog.h"
+#include "WifiStuff.h"
 #include "Statemachine.h"
 #include "config.h"
 
@@ -200,7 +201,6 @@ void Statemachine::input(int n) {
                             plants.startPlant(i);
                         }
                     }
-                    selected_plants.clear();
                     
                     selected_time = MAX_AUTO_PLANT_RUNTIME;
                     start_time = millis();
@@ -623,6 +623,37 @@ void Statemachine::switch_to(States s) {
               a.c_str(),
               "Hit any key for menu",
               -1);
+
+#if defined(PLATFORM_ESP)
+        unsigned long runtime = stop_time - start_time;
+        if (old_state == auto_plant_run) {
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    bool success = wifi_write_database(runtime / 1000, "plant", i + 1);
+                    if (!success) {
+                        debug.print("Error writing to InfluxDB ");
+                        debug.print(INFLUXDB_HOST);
+                        debug.print(":");
+                        debug.print(INFLUXDB_PORT);
+                        debug.print("/");
+                        debug.print(INFLUXDB_DATABASE);
+                        debug.println("/plant");
+                    }
+                }
+            }
+        } else if (old_state == auto_fert_run) {
+            bool success = wifi_write_database(runtime / 1000, "fertilizer", selected_id);
+            if (!success) {
+                debug.print("Error writing to InfluxDB ");
+                debug.print(INFLUXDB_HOST);
+                debug.print(":");
+                debug.print(INFLUXDB_PORT);
+                debug.print("/");
+                debug.print(INFLUXDB_DATABASE);
+                debug.println("/fertilizer");
+            }
+        }
+#endif // PLATFORM_ESP
     } else if (s == menu_pumps) {
         String a = String("(Input 1 to ") + String(plants.countFertilizers()) + String(")");
         
@@ -671,6 +702,20 @@ void Statemachine::switch_to(States s) {
               a.c_str(),
               "Hit any key for menu",
               -1);
+
+#if defined(PLATFORM_ESP)
+        unsigned long runtime = stop_time - start_time;
+        bool success = wifi_write_database(runtime / 1000, "fertilizer", selected_id);
+        if (!success) {
+            debug.print("Error writing to InfluxDB ");
+            debug.print(INFLUXDB_HOST);
+            debug.print(":");
+            debug.print(INFLUXDB_PORT);
+            debug.print("/");
+            debug.print(INFLUXDB_DATABASE);
+            debug.println("/fertilizer");
+        }
+#endif // PLATFORM_ESP
     } else if (s == menu_valves) {
         String a = String("(Input 1 to ") + String(plants.countPlants() + 1) + String(")");
         
@@ -719,6 +764,22 @@ void Statemachine::switch_to(States s) {
               a.c_str(),
               "Hit any key for menu",
               -1);
+
+#if defined(PLATFORM_ESP)
+        unsigned long runtime = stop_time - start_time;
+        if (selected_id <= plants.countPlants()) {
+            bool success = wifi_write_database(runtime / 1000, "plant", selected_id);
+            if (!success) {
+                debug.print("Error writing to InfluxDB ");
+                debug.print(INFLUXDB_HOST);
+                debug.print(":");
+                debug.print(INFLUXDB_PORT);
+                debug.print("/");
+                debug.print(INFLUXDB_DATABASE);
+                debug.println("/plant");
+            }
+        }
+#endif // PLATFORM_ESP
     } else if (s == error) {
         print("------ Error! ------",
               "There is a problem:",

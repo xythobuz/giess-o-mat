@@ -56,4 +56,14 @@
 #define I2C_BUS_SPEED 400000
 #define I2C_BUF_SIZE 32
 
+//#define ENABLE_GPIO_TEST
+#define GPIO_TEST_INTERVAL 4000
+#define GPIO_TEST_DELAY 200
+
+// InfluxDB settings
+#define ENABLE_INFLUXDB_LOGGING
+#define INFLUXDB_HOST "10.23.42.14"
+#define INFLUXDB_PORT 8086
+#define INFLUXDB_DATABASE "giessomat"
+
 #endif // _CONFIG_H_

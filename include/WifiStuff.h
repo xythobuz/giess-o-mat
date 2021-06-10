@@ -31,6 +31,8 @@ void wifi_send_status_broadcast(void);
 
 void wifi_send_websocket(String s);
 
+bool wifi_write_database(int duration, const char *type, int id);
+
 #endif
 
 #endif // _WIFI_STUFF_H_
