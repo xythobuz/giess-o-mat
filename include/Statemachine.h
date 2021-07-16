@@ -31,13 +31,18 @@ public:
         init = 0,
         menu, // auto, pumps, valves
         
-        auto_mode, // select mode
+        auto_mode_a, // select mode 1
+        auto_mode_b, // select mode 2
         auto_fert, // select fertilizer
         auto_fert_run,
         auto_tank_run,
         auto_plant, // select plant
         auto_plant_run,
         auto_done,
+
+        fillnwater_plant, // select plants
+        fillnwater_tank_run,
+        fillnwater_plant_run,
         
         menu_pumps, // selet pump
         menu_pumps_time, // set runtime
