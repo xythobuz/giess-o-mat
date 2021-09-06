@@ -29,7 +29,8 @@ class Statemachine {
 public:
     enum States {
         init = 0,
-        menu, // auto, pumps, valves
+        menu_a, // manual, auto
+        menu_b, // pumps, valves
         
         auto_mode_a, // select mode 1
         auto_mode_b, // select mode 2
@@ -43,6 +44,8 @@ public:
         fillnwater_plant, // select plants
         fillnwater_tank_run,
         fillnwater_plant_run,
+
+        automation_mode,
         
         menu_pumps, // selet pump
         menu_pumps_time, // set runtime
@@ -91,6 +94,7 @@ public:
     void act(void);
     
     const char *getStateName(void);
+    bool isIdle(void);
     
 private:
     void switch_to(States s);
@@ -106,6 +110,7 @@ private:
     uint32_t selected_time; // runtime
     unsigned long start_time, stop_time, last_animation_time;
     String error_condition;
+    unsigned long into_state_time;
 };
 
 #endif // _STATEMACHINE_H_

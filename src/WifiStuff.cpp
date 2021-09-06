@@ -722,7 +722,7 @@ void wifi_run() {
     }
     
     // reset ESP every 6h to be safe
-    if (millis() >= (6 * 60 * 60 * 1000)) {
+    if ((millis() >= (6UL * 60UL * 60UL * 1000UL)) && (sm_is_idle())) {
         ESP.restart();
     }
     

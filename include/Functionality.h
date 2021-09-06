@@ -51,4 +51,6 @@ void write_to_all(const char *a, const char *b,
                   const char *c, const char *d, int num_input);
 void backspace(void);
 
+bool sm_is_idle(void);
+
 #endif // _FUNCTIONALITY_H_

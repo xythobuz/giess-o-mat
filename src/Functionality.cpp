@@ -34,6 +34,10 @@
 CircularBuffer<int, I2C_BUF_SIZE> keybuffer;
 String linebuffer[4];
 
+bool sm_is_idle(void) {
+    return true;
+}
+
 #endif // ! FUNCTION_CONTROL
 
 #include "SerialLCD.h"
@@ -66,6 +70,10 @@ int pump_pins[PUMP_COUNT] = { PUMP_PINS };
 int switch_pins[SWITCH_COUNT] = { SWITCH_PINS };
 
 Statemachine sm(write_to_all, backspace);
+
+bool sm_is_idle(void) {
+    return sm.isIdle();
+}
 
 #endif // FUNCTION_CONTROL
 
@@ -528,7 +536,7 @@ void write_to_all(const char *a, const char *b,
                   const char *c, const char *d, int num_input) {
     const char *lines[4] = { a, b, c, d };
     
-    debug.println("write_to_all i2c");
+    //debug.println("write_to_all i2c");
     
     for (int i = 0; i < 4; i++) {
         Wire.beginTransmission(OWN_I2C_ADDRESS);

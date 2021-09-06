@@ -74,7 +74,8 @@ uint32_t Statemachine::DigitBuffer::getNumber(void) {
 
 static const char *state_names[] = {
     stringify(init),
-    stringify(menu),
+    stringify(menu_a),
+    stringify(menu_b),
     stringify(auto_mode_a),
     stringify(auto_mode_b),
     stringify(auto_fert),
@@ -86,6 +87,7 @@ static const char *state_names[] = {
     stringify(fillnwater_plant),
     stringify(fillnwater_tank_run),
     stringify(fillnwater_plant_run),
+    stringify(automation_mode),
     stringify(menu_pumps),
     stringify(menu_pumps_time),
     stringify(menu_pumps_go),
@@ -103,6 +105,10 @@ const char *Statemachine::getStateName(void) {
     return state_names[state];
 }
 
+bool Statemachine::isIdle(void) {
+    return state == init;
+}
+
 Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
         : db(7), selected_plants(plants.countPlants()) {
     state = init;
@@ -116,6 +122,7 @@ Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
     stop_time = 0;
     last_animation_time = 0;
     error_condition = "";
+    into_state_time = 0;
 }
 
 void Statemachine::begin(void) {
@@ -124,17 +131,24 @@ void Statemachine::begin(void) {
 
 void Statemachine::input(int n) {
     if (state == init) {
-        switch_to(menu);
-    } else if (state == menu) {
+        switch_to(menu_a);
+    } else if ((state == menu_a) || (state == menu_b)) {
         if (n == 1) {
             switch_to(auto_mode_a);
         } else if (n == 2) {
-            switch_to(menu_pumps);
+            switch_to(automation_mode);
         } else if (n == 3) {
+            switch_to(menu_pumps);
+        } else if (n == 4) {
             switch_to(menu_valves);
-        } else if ((n == -1) || (n == -2)) {
+        } else if (n == -1) {
             switch_to(init);
+        } else if (n == -2) {
+            switch_to((state == menu_a) ? menu_b : menu_a);
         }
+    } else if (state == automation_mode) {
+        // TODO
+        switch_to(menu_a);
     } else if ((state == auto_mode_a) || (state == auto_mode_b)) {
         if (n == 1) {
             switch_to(auto_fert);
@@ -161,7 +175,7 @@ void Statemachine::input(int n) {
             selected_plants.clear();
             switch_to(auto_plant);
         } else if (n == -1) {
-            switch_to(menu);
+            switch_to(menu_a);
         } else if (n == -2) {
             switch_to((state == auto_mode_a) ? auto_mode_b : auto_mode_a);
         }
@@ -251,7 +265,7 @@ void Statemachine::input(int n) {
                 backspace();
                 db.removeDigit();
             } else {
-                switch_to(menu);
+                switch_to(menu_b);
             }
         } else if (n == -2) {
             if (!db.hasDigits()) {
@@ -357,7 +371,6 @@ void Statemachine::input(int n) {
             start_time = millis();
             switch_to(fillnwater_plant_run);
         } else if (wl == Plants::empty) {
-            stop_time = millis();
             switch_to(auto_mode_a);
         } else if (wl == Plants::invalid) {
             error_condition = "Invalid sensor state";
@@ -421,14 +434,14 @@ void Statemachine::input(int n) {
         stop_time = millis();
         switch_to(menu_pumps_done);
     } else if (state == menu_pumps_done) {
-        switch_to(menu);
+        switch_to(menu_b);
     } else if (state == menu_valves) {
         if (n == -1) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
             } else {
-                switch_to(menu);
+                switch_to(menu_b);
             }
         } else if (n == -2) {
             if (!db.hasDigits()) {
@@ -508,12 +521,12 @@ void Statemachine::input(int n) {
             stop_time = millis();
             switch_to(menu_valves_done);
     } else if (state == menu_valves_done) {
-        switch_to(menu);
+        switch_to(menu_b);
     } else if (state == error) {
         if (old_state != error) {
             switch_to(old_state);
         } else {
-            switch_to(menu);
+            switch_to(menu_a);
         }
     }
 }
@@ -587,7 +600,29 @@ void Statemachine::act(void) {
             // stop if timeout has been reached
             plants.abort();
             stop_time = millis();
-            switch_to(auto_done);
+            if (state == fillnwater_tank_run) {
+                auto wl = plants.getWaterlevel();
+                if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+                    for (int i = 0; i < plants.countPlants(); i++) {
+                        if (selected_plants.isSet(i)) {
+                            plants.startPlant(i);
+                        }
+                    }
+
+                    selected_time = MAX_AUTO_PLANT_RUNTIME;
+                    start_time = millis();
+                    switch_to(fillnwater_plant_run);
+                } else if (wl == Plants::empty) {
+                    stop_time = millis();
+                    switch_to(auto_done);
+                } else if (wl == Plants::invalid) {
+                    error_condition = "Invalid sensor state";
+                    state = auto_mode_a;
+                    switch_to(error);
+                }
+            } else {
+                switch_to(auto_done);
+            }
         } else if ((millis() - last_animation_time) >= 500) {
             // update animation if needed
             last_animation_time = millis();
@@ -656,11 +691,36 @@ void Statemachine::act(void) {
             switch_to(error);
         }
     }
+
+    if ((state == menu_a) || (state == menu_b) || (state == automation_mode)
+            || (state == auto_mode_a) || (state == auto_mode_b)
+            || (state == auto_fert) || (state == auto_done)
+            || (state == auto_plant) || (state == fillnwater_plant)
+            || (state == menu_pumps) || (state == menu_pumps_time)
+            || (state == menu_pumps_go) || (state == menu_pumps_done)
+            || (state == menu_valves) || (state == menu_valves_time)
+            || (state == menu_valves_go) || (state == menu_valves_done)) {
+        unsigned long runtime = millis() - into_state_time;
+        if (runtime >= BACK_TO_IDLE_TIMEOUT) {
+            debug.print("Idle timeout reached in state ");
+            debug.println(state_names[state]);
+            switch_to(init);
+        }
+    }
 }
 
 void Statemachine::switch_to(States s) {
     old_state = state;
     state = s;
+    into_state_time = millis();
+
+    if (old_state != state) {
+        // don't spam log with every animation state "change"
+        debug.print("switch_to ");
+        debug.print(state_names[old_state]);
+        debug.print(" --> ");
+        debug.println(state_names[state]);
+    }
     
     if (s == init) {
         String a = String("- Giess-o-mat V") + FIRMWARE_VERSION + String(" -");
@@ -670,20 +730,33 @@ void Statemachine::switch_to(States s) {
               "* Delete prev. digit",
               "# Execute input num.",
               -1);
-    } else if (s == menu) {
-        print("------- Menu -------",
-              "1: Automatic program",
-              "2: Fertilizer pumps",
-              "3: Outlet valves",
+    } else if (s == menu_a) {
+        print("----- Menu 1/2 -----",
+              "1: Manual Operation",
+              "2: Automation",
+              "#: Go to page 2/2...",
+              -1);
+    } else if (s == menu_b) {
+        print("----- Menu 2/2 -----",
+              "3: Fertilizer pumps",
+              "4: Outlet valves",
+              "#: Go to page 1/2...",
+              -1);
+    } else if (state == automation_mode) {
+        // TODO
+        print("---- Automation ----",
+              "TODO NOT IMPLEMENTED",
+              "TODO NOT IMPLEMENTED",
+              "TODO NOT IMPLEMENTED",
               -1);
     } else if (s == auto_mode_a) {
-        print("----- Auto 1/2 -----",
+        print("---- Manual 1/2 ----",
               "1: Add Fertilizer",
               "2: Fill 'n' Water",
               "#: Go to page 2/2...",
               -1);
     } else if (s == auto_mode_b) {
-        print("----- Auto 2/2 -----",
+        print("---- Manual 2/2 ----",
               "3: Fill Reservoir",
               "4: Water a plant",
               "#: Go to page 1/2...",
