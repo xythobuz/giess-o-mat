@@ -103,6 +103,13 @@ bool wifi_write_database(int duration, const char *type, int id) {
     bool success = false;
 
 #ifdef ENABLE_INFLUXDB_LOGGING
+    // we still want to be locally usable / have a snappy ui
+    // even when the wifi connection is broken.
+    if (WiFi.status() != WL_CONNECTED) {
+        debug.println("Won't attempt db write, no WiFi connection.");
+        return success;
+    }
+
     InfluxData measurement(type);
     measurement.addTag("version", FIRMWARE_VERSION);
     measurement.addTag("device", WiFi.macAddress());

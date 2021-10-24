@@ -123,6 +123,8 @@ Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
     last_animation_time = 0;
     error_condition = "";
     into_state_time = 0;
+    filling_started_empty = false;
+    watering_started_full = false;
 }
 
 void Statemachine::begin(void) {
@@ -307,6 +309,10 @@ void Statemachine::input(int n) {
                 if (found != 0) {
                     auto wl = plants.getWaterlevel();
                     if ((wl != Plants::full) && (wl != Plants::invalid)) {
+                        // if the waterlevel is currently empty, we
+                        // set a flag to record the time to fill
+                        filling_started_empty = (wl == Plants::empty);
+
                         plants.openWaterInlet();
                         selected_id = plants.countPlants() + 1;
                         selected_time = MAX_TANK_FILL_TIME;
@@ -321,6 +327,9 @@ void Statemachine::input(int n) {
                                     plants.startPlant(i);
                                 }
                             }
+
+                            // for recording the flowrate
+                            watering_started_full = (wl == Plants::full);
 
                             selected_time = MAX_AUTO_PLANT_RUNTIME;
                             start_time = millis();
@@ -366,6 +375,8 @@ void Statemachine::input(int n) {
                     plants.startPlant(i);
                 }
             }
+
+            watering_started_full = (wl == Plants::full);
 
             selected_time = MAX_AUTO_PLANT_RUNTIME;
             start_time = millis();
@@ -609,6 +620,8 @@ void Statemachine::act(void) {
                         }
                     }
 
+                    watering_started_full = (wl == Plants::full);
+
                     selected_time = MAX_AUTO_PLANT_RUNTIME;
                     start_time = millis();
                     switch_to(fillnwater_plant_run);
@@ -635,6 +648,28 @@ void Statemachine::act(void) {
             plants.abort();
             stop_time = millis();
             if (state == fillnwater_tank_run) {
+                // record time to fill here, if we started with
+                // an empty tank at the start of filling
+                if (filling_started_empty) {
+                    unsigned long time_to_fill = stop_time - start_time;
+                    debug.print("Filling tank took ");
+                    debug.print(String(time_to_fill));
+                    debug.println("ms");
+
+#if defined(PLATFORM_ESP)
+                    bool success = wifi_write_database(time_to_fill, "calibrated_filling", -1);
+                    if (!success) {
+                        debug.print("Error writing to InfluxDB ");
+                        debug.print(INFLUXDB_HOST);
+                        debug.print(":");
+                        debug.print(INFLUXDB_PORT);
+                        debug.print("/");
+                        debug.print(INFLUXDB_DATABASE);
+                        debug.println("/calibrated_filling");
+                    }
+#endif // PLATFORM_ESP
+                }
+
                 auto wl = plants.getWaterlevel();
                 if ((wl != Plants::empty) && (wl != Plants::invalid)) {
                     for (int i = 0; i < plants.countPlants(); i++) {
@@ -642,6 +677,8 @@ void Statemachine::act(void) {
                             plants.startPlant(i);
                         }
                     }
+
+                    watering_started_full = (wl == Plants::full);
 
                     selected_time = MAX_AUTO_PLANT_RUNTIME;
                     start_time = millis();
@@ -683,6 +720,34 @@ void Statemachine::act(void) {
         if (wl == Plants::empty) {
             plants.abort();
             stop_time = millis();
+
+            // if we started watering with a full tank
+            // and then finished watering when it was empty
+            // and we were only watering a single plant
+            // look at this as a "calibration run" and record
+            // the time it took to empty the tank
+            if ((state == fillnwater_plant_run) && watering_started_full && (selected_plants.countSet() == 1)) {
+                unsigned long time_to_water = stop_time - start_time;
+                debug.print("Watering plant ");
+                debug.print(selected_plants.getFirstSet() + 1);
+                debug.print(" with the complete tank took ");
+                debug.print(String(time_to_water));
+                debug.println("ms");
+
+#if defined(PLATFORM_ESP)
+                bool success = wifi_write_database(time_to_water, "calibrated_watering", selected_plants.getFirstSet() + 1);
+                if (!success) {
+                    debug.print("Error writing to InfluxDB ");
+                    debug.print(INFLUXDB_HOST);
+                    debug.print(":");
+                    debug.print(INFLUXDB_PORT);
+                    debug.print("/");
+                    debug.print(INFLUXDB_DATABASE);
+                    debug.println("/calibrated_watering");
+                }
+#endif // PLATFORM_ESP
+            }
+
             switch_to(auto_done);
         } else if (wl == Plants::invalid) {
             plants.abort();

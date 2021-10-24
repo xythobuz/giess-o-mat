@@ -28,6 +28,8 @@ public:
     void clear(void);
     void set(int n);
     bool isSet(int n);
+    int countSet(void);
+    int getFirstSet(void);
     
 private:
     int size;

@@ -59,43 +59,77 @@ plt.ioff()
 fig, ax = plt.subplots()
 
 for i in range(len(ids)):
+    cumulative = []
+    for j in range(len(durations[i])):
+        if j == 0:
+            cumulative.append(durations[i][j])
+        else:
+            cumulative.append(cumulative[j - 1] + durations[i][j])
+
     dates = matplotlib.dates.date2num(times[i])
-    ax.plot_date(dates, durations[i], '-', label='id ' + ids[i])
+    ax.plot_date(dates, cumulative, '-', label='id ' + ids[i])
 
     ax.set_xlabel('Time')
     ax.set_ylabel('Duration')
-    ax.set_title('Watering Durations')
+    ax.set_title('Cumulative Watering Durations')
     ax.legend()
 
 # ---------------------------
 
+smoothing_value = 3.0
+
 fig, ax = plt.subplots()
 
 for i in range(len(ids)):
-    values = []
-    for j in range(len(times[i])):
+    cumulative = []
+    for j in range(len(durations[i])):
         if j == 0:
-            continue
-        delta = times[i][j] - times[i][j - 1]
-        values.append(delta.days)
+            cumulative.append(durations[i][j])
+        else:
+            cumulative.append(cumulative[j - 1] + durations[i][j])
 
-    ax.plot(range(len(values)), values, '-', label='id ' + ids[i])
+    cumulative_clean = []
+    time_clean = []
+    xr = iter(range(len(durations[i]) - 1))
+    try:
+        for j in xr:
+            dx_dt = (times[i][j + 1] - times[i][j])
+            dx = dx_dt.seconds / 24 / 60 / 60 + dx_dt.days
+            if dx <= smoothing_value:
+                #print("combining diff=" + str(dx))
+                time_clean.append(times[i][j + 1])
+                cumulative_clean.append(cumulative[j + 1])
+                next(xr)
+            else:
+                time_clean.append(times[i][j])
+                cumulative_clean.append(cumulative[j])
+    except:
+        pass
 
-    ax.set_xlabel('Watering No.')
-    ax.set_ylabel('Time Difference')
-    ax.set_title('Time between Waterings')
-    ax.legend()
+    cumulative_clean_2 = []
+    time_clean_2 = []
+    xr = iter(range(len(cumulative_clean) - 1))
+    try:
+        for j in xr:
+            dx_dt = (time_clean[j + 1] - time_clean[j])
+            dx = dx_dt.seconds / 24 / 60 / 60 + dx_dt.days
+            if dx <= smoothing_value:
+                #print("combining diff=" + str(dx))
+                time_clean_2.append(time_clean[j + 1])
+                cumulative_clean_2.append(cumulative_clean[j + 1])
+                next(xr)
+            else:
+                time_clean_2.append(time_clean[j])
+                cumulative_clean_2.append(cumulative_clean[j])
+    except:
+        pass
 
-# ---------------------------
+    dates = matplotlib.dates.date2num(time_clean_2)
+    ax.plot_date(dates, cumulative_clean_2, '-', label='id ' + ids[i])
 
-fig, ax = plt.subplots()
-
-for i in range(len(ids)):
-    ax.plot(range(len(durations[i])), durations[i], '-', label='id ' + ids[i])
-
-    ax.set_xlabel('Watering No.')
+    ax.set_xlabel('Time')
     ax.set_ylabel('Duration')
-    ax.set_title('Duration per Watering')
+    ax.set_title('Smoothed Cumulative Watering Durations')
     ax.legend()
 
 # ---------------------------
@@ -103,29 +137,65 @@ for i in range(len(ids)):
 fig, ax = plt.subplots()
 
 for i in range(len(ids)):
-    values = []
-    s = 0
-    for j in range(len(times[i]) - 1):
-        t_delta = times[i][j + 1] - times[i][j]
-        dur = (durations[i][j] + durations[i][j + 1]) / 2.0
-        #dur = durations[i][j + 1]
-        #dur = durations[i][j]
-        avg_per_sec = dur / t_delta.total_seconds()
-        #if i == 2:
-        #    print()
-        #    print(dur)
-        #    print(t_delta.total_seconds())
-        #    print(avg_per_sec)
-        avg_per_day = avg_per_sec * 60.0 * 60.0 * 24.0
-        values.append(avg_per_day)
-        s += avg_per_sec
-    #print(s / (len(times[i]) - 1))
+    cumulative = []
+    for j in range(len(durations[i])):
+        if j == 0:
+            cumulative.append(durations[i][j])
+        else:
+            cumulative.append(cumulative[j - 1] + durations[i][j])
 
-    ax.plot(range(len(values)), values, '-', label='id ' + ids[i])
+    cumulative_clean = []
+    time_clean = []
+    xr = iter(range(len(durations[i]) - 1))
+    try:
+        for j in xr:
+            dx_dt = (times[i][j + 1] - times[i][j])
+            dx = dx_dt.seconds / 24 / 60 / 60 + dx_dt.days
+            if dx <= smoothing_value:
+                #print("combining diff=" + str(dx))
+                time_clean.append(times[i][j + 1])
+                cumulative_clean.append(cumulative[j + 1])
+                next(xr)
+            else:
+                time_clean.append(times[i][j])
+                cumulative_clean.append(cumulative[j])
+    except:
+        pass
 
-    ax.set_xlabel('Watering No.')
-    ax.set_ylabel('Duration per Day')
-    ax.set_title('Watering Duration per Day')
+    cumulative_clean_2 = []
+    time_clean_2 = []
+    xr = iter(range(len(cumulative_clean) - 1))
+    try:
+        for j in xr:
+            dx_dt = (time_clean[j + 1] - time_clean[j])
+            dx = dx_dt.seconds / 24 / 60 / 60 + dx_dt.days
+            if dx <= smoothing_value:
+                #print("combining diff=" + str(dx))
+                time_clean_2.append(time_clean[j + 1])
+                cumulative_clean_2.append(cumulative_clean[j + 1])
+                next(xr)
+            else:
+                time_clean_2.append(time_clean[j])
+                cumulative_clean_2.append(cumulative_clean[j])
+    except:
+        pass
+
+    rate_of_change = []
+    for j in range(len(cumulative_clean_2)):
+        if j < len(cumulative_clean_2) - 1:
+            dy = cumulative_clean_2[j + 1] - cumulative_clean_2[j]
+            dx_dt = (time_clean_2[j + 1] - time_clean_2[j])
+            dx = dx_dt.seconds / 24 / 60 / 60 + dx_dt.days
+            roc = dy / dx
+            #print(str(time_clean_2[j]) + " " + str(dy) + " / " + str(dx) + " = " + str(roc))
+            rate_of_change.append(roc)
+
+    dates = matplotlib.dates.date2num(time_clean_2)
+    ax.plot_date(dates[:-1], rate_of_change, '-', label='id ' + ids[i])
+
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Rate of Change')
+    ax.set_title('RoC of Cumulative Watering Durations')
     ax.legend()
 
 # ---------------------------

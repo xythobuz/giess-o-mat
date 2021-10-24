@@ -41,3 +41,22 @@ void BoolField::set(int n) {
 bool BoolField::isSet(int n) {
     return field[n];
 }
+
+int BoolField::countSet(void) {
+    int c = 0;
+    for (int i = 0; i < size; i++) {
+        if (field[i]) {
+            c++;
+        }
+    }
+    return c;
+}
+
+int BoolField::getFirstSet(void) {
+    for (int i = 0; i < size; i++) {
+        if (field[i]) {
+            return i;
+        }
+    }
+    return -1;
+}

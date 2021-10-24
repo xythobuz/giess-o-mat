@@ -111,6 +111,10 @@ private:
     unsigned long start_time, stop_time, last_animation_time;
     String error_condition;
     unsigned long into_state_time;
+
+    // used for calibrating, in fill'n'water mode
+    bool filling_started_empty;
+    bool watering_started_full;
 };
 
 #endif // _STATEMACHINE_H_
