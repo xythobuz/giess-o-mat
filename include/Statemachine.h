@@ -31,12 +31,15 @@ public:
         init = 0,
         menu_a, // manual, auto
         menu_b, // pumps, valves
+        menu_c, // aux
         
         auto_mode_a, // select mode 1
         auto_mode_b, // select mode 2
-        auto_fert, // select fertilizer
+        auto_fert_a, // select fertilizer 1
+        auto_fert_b, // select fertilizer 2
         auto_fert_run,
         auto_tank_run,
+        auto_stirr_run,
         auto_plant, // select plant
         auto_plant_run,
         auto_done,
@@ -59,6 +62,12 @@ public:
         menu_valves_run,
         menu_valves_done,
         
+        menu_aux, // select aux channel
+        menu_aux_time, // set runtime
+        menu_aux_go, // running
+        menu_aux_run,
+        menu_aux_done,
+
         error
     };
     

@@ -32,9 +32,11 @@
 // in seconds
 #define MAX_TANK_FILL_TIME (67 + 3)
 #define AUTO_PUMP_RUNTIME 5
+#define AUTO_STIRR_RUNTIME 60
 #define MAX_AUTO_PLANT_RUNTIME (35 * 60)
 #define MAX_PUMP_RUNTIME 30
 #define MAX_VALVE_RUNTIME (45 * 60)
+#define MAX_AUX_RUNTIME (5 * 60)
 
 // Sketch version
 #define FIRMWARE_VERSION "0.2"

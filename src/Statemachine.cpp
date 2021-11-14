@@ -76,11 +76,14 @@ static const char *state_names[] = {
     stringify(init),
     stringify(menu_a),
     stringify(menu_b),
+    stringify(menu_c),
     stringify(auto_mode_a),
     stringify(auto_mode_b),
-    stringify(auto_fert),
+    stringify(auto_fert_a),
+    stringify(auto_fert_b),
     stringify(auto_fert_run),
     stringify(auto_tank_run),
+    stringify(auto_stirr_run),
     stringify(auto_plant),
     stringify(auto_plant_run),
     stringify(auto_done),
@@ -98,6 +101,11 @@ static const char *state_names[] = {
     stringify(menu_valves_go),
     stringify(menu_valves_run),
     stringify(menu_valves_done),
+    stringify(menu_aux),
+    stringify(menu_aux_time),
+    stringify(menu_aux_go),
+    stringify(menu_aux_run),
+    stringify(menu_aux_done),
     stringify(error)
 };
 
@@ -134,7 +142,7 @@ void Statemachine::begin(void) {
 void Statemachine::input(int n) {
     if (state == init) {
         switch_to(menu_a);
-    } else if ((state == menu_a) || (state == menu_b)) {
+    } else if ((state == menu_a) || (state == menu_b) || (state == menu_c)) {
         if (n == 1) {
             switch_to(auto_mode_a);
         } else if (n == 2) {
@@ -143,17 +151,19 @@ void Statemachine::input(int n) {
             switch_to(menu_pumps);
         } else if (n == 4) {
             switch_to(menu_valves);
+        } else if (n == 5) {
+            switch_to(menu_aux);
         } else if (n == -1) {
             switch_to(init);
         } else if (n == -2) {
-            switch_to((state == menu_a) ? menu_b : menu_a);
+            switch_to((state == menu_a) ? menu_b : ((state == menu_b) ? menu_c : menu_a));
         }
     } else if (state == automation_mode) {
         // TODO
         switch_to(menu_a);
     } else if ((state == auto_mode_a) || (state == auto_mode_b)) {
         if (n == 1) {
-            switch_to(auto_fert);
+            switch_to(auto_fert_a);
         } else if (n == 2) {
             selected_plants.clear();
             switch_to(fillnwater_plant);
@@ -181,7 +191,7 @@ void Statemachine::input(int n) {
         } else if (n == -2) {
             switch_to((state == auto_mode_a) ? auto_mode_b : auto_mode_a);
         }
-    } else if (state == auto_fert) {
+    } else if ((state == auto_fert_a) || (state == auto_fert_b)) {
         if ((n >= 1) && (n <= 3)) {
             auto wl = plants.getWaterlevel();
             if ((wl != Plants::full) && (wl != Plants::invalid)) {
@@ -198,17 +208,22 @@ void Statemachine::input(int n) {
                 state = auto_mode_a;
                 switch_to(error);
             }
-        } else if ((n == -1) || (n == -2)) {
+        } else if (n == 4) {
+            plants.startAux(0);
+            selected_id = 1;
+            selected_time = AUTO_STIRR_RUNTIME;
+            start_time = millis();
+            switch_to(auto_stirr_run);
+        } else if (n == -1) {
             switch_to(auto_mode_a);
+        } else if (n == -2) {
+            switch_to((state == auto_fert_a) ? auto_fert_b : auto_fert_a);
         }
-    } else if (state == auto_fert_run) {
-            plants.abort();
-            stop_time = millis();
-            switch_to(auto_done);
-    } else if (state == auto_tank_run) {
-            plants.abort();
-            stop_time = millis();
-            switch_to(auto_done);
+    } else if ((state == auto_fert_run) || (state == auto_tank_run)
+            || (state == auto_stirr_run)) {
+        plants.abort();
+        stop_time = millis();
+        switch_to(auto_done);
     } else if (state == auto_plant) {
         if (n == -1) {
             if (db.hasDigits()) {
@@ -528,11 +543,82 @@ void Statemachine::input(int n) {
             switch_to(menu_valves_time);
         }
     } else if (state == menu_valves_run) {
-            plants.abort();
-            stop_time = millis();
-            switch_to(menu_valves_done);
+        plants.abort();
+        stop_time = millis();
+        switch_to(menu_valves_done);
     } else if (state == menu_valves_done) {
         switch_to(menu_b);
+    } else if (state == menu_aux) {
+        if (n == -1) {
+            if (db.hasDigits()) {
+                backspace();
+                db.removeDigit();
+            } else {
+                switch_to(menu_c);
+            }
+        } else if (n == -2) {
+            if (!db.hasDigits()) {
+                return;
+            }
+
+            selected_id = number_input();
+
+            if ((selected_id <= 0) || (selected_id > plants.countAux())) {
+                error_condition = "Invalid valve ID!";
+                switch_to(error);
+            } else {
+                switch_to(menu_aux_time);
+            }
+        } else {
+            if (db.spaceLeft()) {
+                db.addDigit(n);
+            } else {
+                backspace();
+            }
+        }
+    } else if (state == menu_aux_time) {
+        if (n == -1) {
+            if (db.hasDigits()) {
+                backspace();
+                db.removeDigit();
+            } else {
+                switch_to(menu_aux);
+            }
+        } else if (n == -2) {
+            if (!db.hasDigits()) {
+                return;
+            }
+
+            selected_time = number_input();
+
+            if ((selected_time <= 0) || (selected_time > MAX_AUX_RUNTIME)) {
+                error_condition = "Invalid time range!";
+                switch_to(error);
+            } else {
+                switch_to(menu_aux_go);
+            }
+        } else {
+            if (db.spaceLeft()) {
+                db.addDigit(n);
+            } else {
+                backspace();
+            }
+        }
+    } else if (state == menu_aux_go) {
+        if (n == -2) {
+            start_time = millis();
+            last_animation_time = start_time;
+            plants.startAux(selected_id - 1);
+            switch_to(menu_aux_run);
+        } else {
+            switch_to(menu_aux_time);
+        }
+    } else if (state == menu_aux_run) {
+        plants.abort();
+        stop_time = millis();
+        switch_to(menu_aux_done);
+    } else if (state == menu_aux_done) {
+        switch_to(menu_c);
     } else if (state == error) {
         if (old_state != error) {
             switch_to(old_state);
@@ -557,13 +643,15 @@ uint32_t Statemachine::number_input(void) {
 }
 
 void Statemachine::act(void) {
-    if ((state == menu_pumps_run) || (state == menu_valves_run)) {
+    if ((state == menu_pumps_run) || (state == menu_valves_run)
+            || (state == menu_aux_run)
+            || (state == auto_stirr_run)) {
         unsigned long runtime = millis() - start_time;
         if ((runtime / 1000UL) >= selected_time) {
             // stop if timeout has been reached
             plants.abort();
             stop_time = millis();
-            switch_to((state == menu_pumps_run) ? menu_pumps_done : menu_valves_done);
+            switch_to((state == menu_pumps_run) ? menu_pumps_done : ((state == menu_valves_run) ? menu_valves_done : ((state == menu_aux_run) ? menu_aux_done : auto_done)));
         } else if ((millis() - last_animation_time) >= 500) {
             // update animation if needed
             last_animation_time = millis();
@@ -757,14 +845,17 @@ void Statemachine::act(void) {
         }
     }
 
-    if ((state == menu_a) || (state == menu_b) || (state == automation_mode)
+    if ((state == menu_a) || (state == menu_b) || (state == menu_c)
+            || (state == automation_mode) || (state == auto_done)
             || (state == auto_mode_a) || (state == auto_mode_b)
-            || (state == auto_fert) || (state == auto_done)
+            || (state == auto_fert_a) || (state == auto_fert_b)
             || (state == auto_plant) || (state == fillnwater_plant)
             || (state == menu_pumps) || (state == menu_pumps_time)
             || (state == menu_pumps_go) || (state == menu_pumps_done)
             || (state == menu_valves) || (state == menu_valves_time)
-            || (state == menu_valves_go) || (state == menu_valves_done)) {
+            || (state == menu_valves_go) || (state == menu_valves_done)
+            || (state == menu_aux) || (state == menu_aux_time)
+            || (state == menu_aux_go) || (state == menu_aux_done)) {
         unsigned long runtime = millis() - into_state_time;
         if (runtime >= BACK_TO_IDLE_TIMEOUT) {
             debug.print("Idle timeout reached in state ");
@@ -796,16 +887,22 @@ void Statemachine::switch_to(States s) {
               "# Execute input num.",
               -1);
     } else if (s == menu_a) {
-        print("----- Menu 1/2 -----",
+        print("----- Menu 1/3 -----",
               "1: Manual Operation",
               "2: Automation",
-              "#: Go to page 2/2...",
+              "#: Go to page 2/3...",
               -1);
     } else if (s == menu_b) {
-        print("----- Menu 2/2 -----",
+        print("----- Menu 2/3 -----",
               "3: Fertilizer pumps",
               "4: Outlet valves",
-              "#: Go to page 1/2...",
+              "#: Go to page 3/3...",
+              -1);
+    } else if (s == menu_c) {
+        print("----- Menu 3/3 -----",
+              "5: Aux. Outputs",
+              "",
+              "#: Go to page 1/3...",
               -1);
     } else if (state == automation_mode) {
         // TODO
@@ -826,11 +923,17 @@ void Statemachine::switch_to(States s) {
               "4: Water a plant",
               "#: Go to page 1/2...",
               -1);
-    } else if (s == auto_fert) {
-        print("---- Fertilizer ----",
+    } else if (s == auto_fert_a) {
+        print("-- Fertilizer 1/2 --",
               "1: Vegetation Phase",
               "2: Bloom Phase",
-              "3: Special",
+              "#: Go to page 2/2...",
+              -1);
+    } else if (s == auto_fert_b) {
+        print("-- Fertilizer 2/2 --",
+              "3: Special Fert.",
+              "4: Run Stirrer",
+              "#: Go to page 1/2...",
               -1);
     } else if (s == auto_fert_run) {
         unsigned long runtime = millis() - start_time;
@@ -843,6 +946,21 @@ void Statemachine::switch_to(States s) {
         }
         
         print("---- Dispensing ----",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
+              -1);
+    } else if (s == auto_stirr_run) {
+        unsigned long runtime = millis() - start_time;
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+
+        unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
+        String b;
+        for (unsigned long i = 0; i < anim; i++) {
+            b += '#';
+        }
+
+        print("----- Stirring -----",
               a.c_str(),
               b.c_str(),
               "Hit any key to stop!",
@@ -1050,6 +1168,54 @@ void Statemachine::switch_to(States s) {
             }
         }
 #endif // PLATFORM_ESP
+    } else if (s == menu_aux) {
+        String a = String("(Input 1 to ") + String(plants.countAux()) + String(")");
+
+        print("------- Aux. -------",
+              "Please select aux.",
+              a.c_str(),
+              "Aux.: ",
+              3);
+    } else if (s == menu_aux_time) {
+        String header = String("------ Aux  ") + String(selected_id) + String(" ------");
+
+        print(header.c_str(),
+              "Please set runtime",
+              "(Input in seconds)",
+              "Runtime: ",
+              3);
+    } else if (s == menu_aux_go) {
+        String a = String("Aux No. ") + String(selected_id);
+        String b = String("Runtime ") + String(selected_time) + String('s');
+
+        print("----- Confirm? -----",
+              a.c_str(),
+              b.c_str(),
+              "           # Confirm",
+              -1);
+    } else if (s == menu_aux_run) {
+        unsigned long runtime = millis() - start_time;
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');
+
+        unsigned long anim = runtime * 20UL / (selected_time * 1000UL);
+        String b;
+        for (unsigned long i = 0; i <= anim; i++) {
+            b += '#';
+        }
+
+        print("----- Stirring -----",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
+              -1);
+    } else if (s == menu_aux_done) {
+        String a = String("after ") + String((stop_time - start_time) / 1000UL) + String("s.");
+
+        print("------- Done -------",
+              "Stirring finished",
+              a.c_str(),
+              "Hit any key for menu",
+              -1);
     } else if (s == error) {
         print("------ Error! ------",
               "There is a problem:",

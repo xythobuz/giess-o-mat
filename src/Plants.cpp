@@ -27,8 +27,8 @@
 // valves: no of plants + 1 for water inlet
 // pumps: no of fertilizers
 // switches: 2, low and high level
-Plants::Plants(int valve_count, int pump_count, int switch_count) :
-        valves(valve_count), pumps(pump_count), switches(switch_count) {
+Plants::Plants(int valve_count, int pump_count, int switch_count, int aux_count) :
+        valves(valve_count), pumps(pump_count), switches(switch_count), aux(aux_count) {
 }
 
     
@@ -42,6 +42,10 @@ GPIOBank *Plants::getPumps(void) {
 
 GPIOBank *Plants::getSwitches(void) {
     return &switches;
+}
+
+GPIOBank *Plants::getAux(void) {
+    return &aux;
 }
 
 void Plants::setValvePins(int pins[]) {
@@ -61,10 +65,17 @@ void Plants::setSwitchPins(int pins[], bool pullup) {
     switches.setInput(pullup);
 }
 
+void Plants::setAuxPins(int pins[]) {
+    aux.setPinNumbers(pins);
+    aux.setOutput();
+    aux.setAll(false);
+}
+
 void Plants::abort(void) {
     closeWaterInlet();
     stopAllFertilizers();
     stopAllPlants();
+    stopAllAux();
 }
 
 Plants::Waterlevel Plants::getWaterlevel(void) {
@@ -153,5 +164,33 @@ void Plants::stopPlant(int id) {
 void Plants::stopAllPlants(void) {
     for (int i = 0; i < countPlants(); i++) {
         stopPlant(i);
+    }
+}
+
+int Plants::countAux(void) {
+    return aux.getSize();
+}
+
+void Plants::startAux(int id) {
+    debug.print("Plants::startAux ");
+    debug.println(id);
+
+    if ((id >= 0) && (id < countAux())) {
+        aux.setPin(id, true);
+    }
+}
+
+void Plants::stopAux(int id) {
+    debug.print("Plants::stopAux ");
+    debug.println(id);
+
+    if ((id >= 0) && (id < countAux())) {
+        aux.setPin(id, false);
+    }
+}
+
+void Plants::stopAllAux(void) {
+    for (int i = 0; i < countAux(); i++) {
+        stopAux(i);
     }
 }

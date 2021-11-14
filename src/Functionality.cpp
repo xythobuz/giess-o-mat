@@ -64,10 +64,11 @@ bool doing_multi_input = false;
 #include "Statemachine.h"
 #include "WifiStuff.h"
 
-Plants plants(VALVE_COUNT, PUMP_COUNT, SWITCH_COUNT);
+Plants plants(VALVE_COUNT, PUMP_COUNT, SWITCH_COUNT, AUX_COUNT);
 int valve_pins[VALVE_COUNT] = { VALVE_PINS };
 int pump_pins[PUMP_COUNT] = { PUMP_PINS };
 int switch_pins[SWITCH_COUNT] = { SWITCH_PINS };
+int aux_pins[AUX_COUNT] = { AUX_PINS };
 
 Statemachine sm(write_to_all, backspace);
 
@@ -459,6 +460,7 @@ void control_setup(void) {
     plants.setValvePins(valve_pins);
     plants.setPumpPins(pump_pins);
     plants.setSwitchPins(switch_pins, true);
+    plants.setAuxPins(aux_pins);
     
 #ifndef FUNCTION_UI
     

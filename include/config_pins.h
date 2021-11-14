@@ -56,6 +56,10 @@
 #define SWITCH_COUNT 2
 #define SWITCH_PINS 19, 20
 
+// stirrer
+#define AUX_COUNT 1
+#define AUX_PINS 21
+
 #endif // FUNCTION_CONTROL
 
 #endif // PLATFORM_AVR
@@ -86,6 +90,10 @@
 // a, b, c
 #define PUMP_COUNT 3
 #define PUMP_PINS 2, 0, 4
+
+// stirrer
+#define AUX_COUNT 1
+#define AUX_PINS 19
 
 // bottom, top
 #define SWITCH_COUNT 2

@@ -34,11 +34,12 @@ public:
     // valves: no of plants + 1 for water inlet
     // pumps: no of fertilizers
     // switches: 2, low and high level
-    Plants(int valve_count, int pump_count, int switch_count);
+    Plants(int valve_count, int pump_count, int switch_count, int aux_count);
     
     void setValvePins(int pins[]);
     void setPumpPins(int pins[]);
     void setSwitchPins(int pins[], bool pullup);
+    void setAuxPins(int pins[]);
     
     void abort(void);
     
@@ -55,15 +56,22 @@ public:
     void startPlant(int id);
     void stopPlant(int id);
     void stopAllPlants(void);
+
+    int countAux(void);
+    void startAux(int id);
+    void stopAux(int id);
+    void stopAllAux(void);
     
     GPIOBank *getValves(void);
     GPIOBank *getPumps(void);
     GPIOBank *getSwitches(void);
+    GPIOBank *getAux(void);
     
 private:
     GPIOBank valves;
     GPIOBank pumps;
     GPIOBank switches;
+    GPIOBank aux;
 };
 
 extern Plants plants;
