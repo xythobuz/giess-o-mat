@@ -56,6 +56,19 @@ When an ESP is used, a webinterface and OTA updater will be included as well.
 For the ESP32, you can upload a new firmware using a webbrowser.
 Simply use the link on the main page of the web ui, then upload the '.pio/build/esp32_main/firmware.bin' file from the project directory after building.
 
+Writing events to InfluxDB is also supported.
+Configure the server and database in 'include/config.h'.
+It will store the valve-open duration (in seconds) with the following measurement types:
+
+    fertilizer
+    plant
+    calibrated_filling
+    calibrated_watering
+
+Fertilizer shows each time a fertilizer pump has been running.
+Plant shows when multiple plants have been watered at the same time.
+Additionally, calibrated_filling can be used to determine the inlet flowrate and calibrated_watering can be used to determine each outlet flowrate, as long as the tank size is known.
+
 ## License
 
     Copyright (c) 2021 Thomas Buck <thomas@xythobuz.de>
