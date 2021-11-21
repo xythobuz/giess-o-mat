@@ -133,6 +133,7 @@ Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
     into_state_time = 0;
     filling_started_empty = false;
     watering_started_full = false;
+    menu_entered_digits = "";
 }
 
 void Statemachine::begin(void) {
@@ -179,7 +180,7 @@ void Statemachine::input(int n) {
                 stop_time = millis();
                 switch_to(auto_mode_a);
             } else if (wl == Plants::invalid) {
-                error_condition = "Invalid sensor state";
+                error_condition = F("Invalid sensor state");
                 state = auto_mode_a;
                 switch_to(error);
             }
@@ -204,7 +205,7 @@ void Statemachine::input(int n) {
                 stop_time = millis();
                 switch_to(auto_mode_a);
             } else if (wl == Plants::invalid) {
-                error_condition = "Invalid sensor state";
+                error_condition = F("Invalid sensor state");
                 state = auto_mode_a;
                 switch_to(error);
             }
@@ -229,6 +230,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(auto_mode_b);
             }
@@ -249,14 +254,14 @@ void Statemachine::input(int n) {
                     stop_time = millis();
                     switch_to(auto_mode_b);
                 } else if (wl == Plants::invalid) {
-                    error_condition = "Invalid sensor state";
+                    error_condition = F("Invalid sensor state");
                     state = auto_mode_b;
                     switch_to(error);
                 }
             } else {
                 selected_id = number_input();
                 if ((selected_id <= 0) || (selected_id > plants.countPlants())) {
-                    error_condition = "Invalid plant ID!";
+                    error_condition = F("Invalid plant ID!");
                     switch_to(error);
                 } else {
                     selected_plants.set(selected_id - 1);
@@ -266,6 +271,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -281,6 +288,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(menu_b);
             }
@@ -292,7 +303,7 @@ void Statemachine::input(int n) {
             selected_id = number_input();
             
             if ((selected_id <= 0) || (selected_id > plants.countFertilizers())) {
-                error_condition = "Invalid pump ID!";
+                error_condition = F("Invalid pump ID!");
                 switch_to(error);
             } else {
                 switch_to(menu_pumps_time);
@@ -300,6 +311,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -309,6 +322,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(auto_mode_a);
             }
@@ -353,12 +370,12 @@ void Statemachine::input(int n) {
                             stop_time = millis();
                             switch_to(auto_mode_a);
                         } else if (wl == Plants::invalid) {
-                            error_condition = "Invalid sensor state";
+                            error_condition = F("Invalid sensor state");
                             state = auto_mode_a;
                             switch_to(error);
                         }
                     } else if (wl == Plants::invalid) {
-                        error_condition = "Invalid sensor state";
+                        error_condition = F("Invalid sensor state");
                         state = auto_mode_a;
                         switch_to(error);
                     }
@@ -366,7 +383,7 @@ void Statemachine::input(int n) {
             } else {
                 selected_id = number_input();
                 if ((selected_id <= 0) || (selected_id > plants.countPlants())) {
-                    error_condition = "Invalid plant ID!";
+                    error_condition = F("Invalid plant ID!");
                     switch_to(error);
                 } else {
                     selected_plants.set(selected_id - 1);
@@ -376,6 +393,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -399,7 +418,7 @@ void Statemachine::input(int n) {
         } else if (wl == Plants::empty) {
             switch_to(auto_mode_a);
         } else if (wl == Plants::invalid) {
-            error_condition = "Invalid sensor state";
+            error_condition = F("Invalid sensor state");
             state = auto_mode_a;
             switch_to(error);
         }
@@ -412,6 +431,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(menu_pumps);
             }
@@ -423,7 +446,7 @@ void Statemachine::input(int n) {
             selected_time = number_input();
             
             if ((selected_time <= 0) || (selected_time > MAX_PUMP_RUNTIME)) {
-                error_condition = "Invalid time range!";
+                error_condition = F("Invalid time range!");
                 switch_to(error);
             } else {
                 switch_to(menu_pumps_go);
@@ -431,6 +454,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -448,7 +473,7 @@ void Statemachine::input(int n) {
                 stop_time = millis();
                 switch_to(menu_pumps_done);
             } else if (wl == Plants::invalid) {
-                error_condition = "Invalid sensor state";
+                error_condition = F("Invalid sensor state");
                 state = menu_pumps;
                 switch_to(error);
             }
@@ -466,6 +491,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(menu_b);
             }
@@ -477,7 +506,7 @@ void Statemachine::input(int n) {
             selected_id = number_input();
             
             if ((selected_id <= 0) || (selected_id > (plants.countPlants() + 1))) {
-                error_condition = "Invalid valve ID!";
+                error_condition = F("Invalid valve ID!");
                 switch_to(error);
             } else {
                 switch_to(menu_valves_time);
@@ -485,6 +514,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -494,6 +525,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(menu_valves);
             }
@@ -505,7 +540,7 @@ void Statemachine::input(int n) {
             selected_time = number_input();
             
             if ((selected_time <= 0) || (selected_time > MAX_VALVE_RUNTIME)) {
-                error_condition = "Invalid time range!";
+                error_condition = F("Invalid time range!");
                 switch_to(error);
             } else {
                 switch_to(menu_valves_go);
@@ -513,6 +548,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -535,7 +572,7 @@ void Statemachine::input(int n) {
                 stop_time = millis();
                 switch_to(menu_valves_done);
             } else if (wl == Plants::invalid) {
-                error_condition = "Invalid sensor state";
+                error_condition = F("Invalid sensor state");
                 state = menu_valves;
                 switch_to(error);
             }
@@ -553,6 +590,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(menu_c);
             }
@@ -564,7 +605,7 @@ void Statemachine::input(int n) {
             selected_id = number_input();
 
             if ((selected_id <= 0) || (selected_id > plants.countAux())) {
-                error_condition = "Invalid valve ID!";
+                error_condition = F("Invalid valve ID!");
                 switch_to(error);
             } else {
                 switch_to(menu_aux_time);
@@ -572,6 +613,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -581,6 +624,10 @@ void Statemachine::input(int n) {
             if (db.hasDigits()) {
                 backspace();
                 db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
             } else {
                 switch_to(menu_aux);
             }
@@ -592,7 +639,7 @@ void Statemachine::input(int n) {
             selected_time = number_input();
 
             if ((selected_time <= 0) || (selected_time > MAX_AUX_RUNTIME)) {
-                error_condition = "Invalid time range!";
+                error_condition = F("Invalid time range!");
                 switch_to(error);
             } else {
                 switch_to(menu_aux_go);
@@ -600,6 +647,8 @@ void Statemachine::input(int n) {
         } else {
             if (db.spaceLeft()) {
                 db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
             } else {
                 backspace();
             }
@@ -669,7 +718,7 @@ void Statemachine::act(void) {
             switch_to((state == menu_pumps_run) ? menu_pumps_done : menu_valves_done);
         } else if (wl == Plants::invalid) {
             plants.abort();
-            error_condition = "Invalid sensor state";
+            error_condition = F("Invalid sensor state");
             state = (state == menu_pumps_run) ? menu_pumps : menu_valves;
             switch_to(error);
         }
@@ -686,7 +735,7 @@ void Statemachine::act(void) {
             switch_to(menu_valves_done);
         } else if (wl == Plants::invalid) {
             plants.abort();
-            error_condition = "Invalid sensor state";
+            error_condition = F("Invalid sensor state");
             state = menu_valves;
             switch_to(error);
         }
@@ -717,7 +766,7 @@ void Statemachine::act(void) {
                     stop_time = millis();
                     switch_to(auto_done);
                 } else if (wl == Plants::invalid) {
-                    error_condition = "Invalid sensor state";
+                    error_condition = F("Invalid sensor state");
                     state = auto_mode_a;
                     switch_to(error);
                 }
@@ -775,7 +824,7 @@ void Statemachine::act(void) {
                     stop_time = millis();
                     switch_to(auto_mode_a);
                 } else if (wl == Plants::invalid) {
-                    error_condition = "Invalid sensor state";
+                    error_condition = F("Invalid sensor state");
                     state = auto_mode_a;
                     switch_to(error);
                 }
@@ -784,7 +833,7 @@ void Statemachine::act(void) {
             }
         } else if (wl == Plants::invalid) {
             plants.abort();
-            error_condition = "Invalid sensor state";
+            error_condition = F("Invalid sensor state");
             state = auto_mode_a;
             switch_to(error);
         }
@@ -839,7 +888,7 @@ void Statemachine::act(void) {
             switch_to(auto_done);
         } else if (wl == Plants::invalid) {
             plants.abort();
-            error_condition = "Invalid sensor state";
+            error_condition = F("Invalid sensor state");
             state = auto_mode_a;
             switch_to(error);
         }
@@ -876,10 +925,12 @@ void Statemachine::switch_to(States s) {
         debug.print(state_names[old_state]);
         debug.print(" --> ");
         debug.println(state_names[state]);
+
+        menu_entered_digits = "";
     }
     
     if (s == init) {
-        String a = String("- Giess-o-mat V") + FIRMWARE_VERSION + String(" -");
+        String a = String(F("- Giess-o-mat V")) + FIRMWARE_VERSION + String(F(" -"));
         
         print(a.c_str(),
               "Usage:  Enter number",
@@ -982,11 +1033,13 @@ void Statemachine::switch_to(States s) {
               -1);
     } else if ((s == auto_plant) || (s == fillnwater_plant)) {
         String a = String("(Input 1 to ") + String(plants.countPlants()) + String(")");
-        
+        String b = String(F("Plant: ")) + menu_entered_digits;
+
+
         print("--- Select Plant ---",
               "Leave empty if done!",
               a.c_str(),
-              "Plant: ",
+              b.c_str(),
               3);
     } else if ((s == auto_plant_run) || (s == fillnwater_plant_run)) {
         unsigned long runtime = millis() - start_time;
@@ -1044,19 +1097,21 @@ void Statemachine::switch_to(States s) {
 #endif // PLATFORM_ESP
     } else if (s == menu_pumps) {
         String a = String("(Input 1 to ") + String(plants.countFertilizers()) + String(")");
+        String b = String(F("Pump: ")) + menu_entered_digits;
         
         print("------- Pump -------",
               "Please select pump",
               a.c_str(),
-              "Pump: ",
+              b.c_str(),
               3);
     } else if (s == menu_pumps_time) {
         String header = String("------ Pump ") + String(selected_id) + String(" ------");
+        String b = String(F("Runtime: ")) + menu_entered_digits;
         
         print(header.c_str(),
               "Please set runtime",
               "(Input in seconds)",
-              "Runtime: ",
+              b.c_str(),
               3);
     } else if (s == menu_pumps_go) {
         String a = String("Pump No. ") + String(selected_id);
@@ -1106,19 +1161,21 @@ void Statemachine::switch_to(States s) {
 #endif // PLATFORM_ESP
     } else if (s == menu_valves) {
         String a = String("(Input 1 to ") + String(plants.countPlants() + 1) + String(")");
+        String b = String(F("Valve: ")) + menu_entered_digits;
         
         print("------ Valves ------",
               "Please select valve",
               a.c_str(),
-              "Valve: ",
+              b.c_str(),
               3);
     } else if (s == menu_valves_time) {
         String header = String("----- Valve  ") + String(selected_id) + String(" -----");
+        String b = String(F("Runtime: ")) + menu_entered_digits;
         
         print(header.c_str(),
               "Please set runtime",
               "(Input in seconds)",
-              "Runtime: ",
+              b.c_str(),
               3);
     } else if (s == menu_valves_go) {
         String a = String("Valve No. ") + String(selected_id);
@@ -1170,19 +1227,21 @@ void Statemachine::switch_to(States s) {
 #endif // PLATFORM_ESP
     } else if (s == menu_aux) {
         String a = String("(Input 1 to ") + String(plants.countAux()) + String(")");
+        String b = String(F("Aux.: ")) + menu_entered_digits;
 
         print("------- Aux. -------",
               "Please select aux.",
               a.c_str(),
-              "Aux.: ",
+              b.c_str(),
               3);
     } else if (s == menu_aux_time) {
         String header = String("------ Aux  ") + String(selected_id) + String(" ------");
+        String b = String(F("Runtime: ")) + menu_entered_digits;
 
         print(header.c_str(),
               "Please set runtime",
               "(Input in seconds)",
-              "Runtime: ",
+              b.c_str(),
               3);
     } else if (s == menu_aux_go) {
         String a = String("Aux No. ") + String(selected_id);

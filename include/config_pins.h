@@ -83,9 +83,14 @@
 
 #ifdef FUNCTION_CONTROL
 
+#define PLANT_COUNT 4
+#define PLANT_PINS 27, 14, 5, 18
+
+#define INLET_PIN 15
+
 // out 1, out 2, out 3, out 4, in
-#define VALVE_COUNT 5
-#define VALVE_PINS 27, 14, 5, 18, 15
+#define VALVE_COUNT (PLANT_COUNT + 1)
+#define VALVE_PINS PLANT_PINS, INLET_PIN
 
 // a, b, c
 #define PUMP_COUNT 3

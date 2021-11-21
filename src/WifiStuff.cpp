@@ -205,6 +205,18 @@ void wifi_send_status_broadcast(void) {
         }
     }
     ws += " ],\n";
+
+    ws += F("\"aux\": [ ");
+    for (int i = 0; i < AUX_COUNT; i++) {
+        ws += "\"";
+        ws += get_plants()->getAux()->getPin(i) ? "1" : "0";
+        ws += "\"";
+
+        if (i < (AUX_COUNT - 1)) {
+            ws += ", ";
+        }
+    }
+    ws += " ],\n";
     
     ws += "\"switchstate\": \"";
     Plants::Waterlevel wl = get_plants()->getWaterlevel();
@@ -273,6 +285,14 @@ void handleRoot() {
     message += F("}\n");
     
     message += F(".pump {\n");
+    message += F("width: max-content;\n");
+    message += F("border: 1px solid black;\n");
+    message += F("border-radius: 50%;\n");
+    message += F("padding: 2em;\n");
+    message += F("margin: 1em;\n");
+    message += F("}\n");
+
+    message += F(".aux {\n");
     message += F("width: max-content;\n");
     message += F("border: 1px solid black;\n");
     message += F("border-radius: 50%;\n");
@@ -454,6 +474,22 @@ void handleRoot() {
         message += F("</div>");
     }
     message += F("</div><hr>\n");
+
+    message += F("Aux:\n");
+    message += F("<div class='container'>\n");
+    for (int i = 0; i < AUX_COUNT; i++) {
+        message += F("<div class='aux' style='background-color: ");
+        if (get_plants()->getAux()->getPin(i)) {
+            message += F("red");
+        } else {
+            message += F("green");
+        }
+        message += F(";'>A");
+        message += String(i + 1);
+        message += F("</div>");
+    }
+    message += F("</div><hr>\n");
+
     message += F("Green means valve is closed / pump is off / switch is not submersed.\n");
     message += F("<br>\n");
     message += F("Red means valve is open / pump is running / switch is submersed.</div>\n");
@@ -594,6 +630,17 @@ void handleRoot() {
     message += F(           "switches[i].style = 'background-color: green;';\n");
     message += F(       "} else {\n");
     message += F(           "switches[i].style = 'background-color: red;';\n");
+    message += F(       "}\n");
+    message += F(    "}\n");
+
+    message += F(    "for (let i = 0; i < ");
+    message += String(AUX_COUNT);
+    message += F("; i++) {\n");
+    message += F(       "var aux = document.getElementsByClassName('aux');\n");
+    message += F(       "if (msg.aux[i] == '0') {\n");
+    message += F(           "aux[i].style = 'background-color: green;';\n");
+    message += F(       "} else {\n");
+    message += F(           "aux[i].style = 'background-color: red;';\n");
     message += F(       "}\n");
     message += F(    "}\n");
     

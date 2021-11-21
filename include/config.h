@@ -30,8 +30,8 @@
 #define BACK_TO_IDLE_TIMEOUT (5UL * 60UL * 1000UL)
 
 // in seconds
-#define MAX_TANK_FILL_TIME (67 + 3)
-#define AUTO_PUMP_RUNTIME 5
+#define MAX_TANK_FILL_TIME (70)
+#define AUTO_PUMP_RUNTIME 3
 #define AUTO_STIRR_RUNTIME 60
 #define MAX_AUTO_PLANT_RUNTIME (35 * 60)
 #define MAX_PUMP_RUNTIME 30
@@ -39,7 +39,7 @@
 #define MAX_AUX_RUNTIME (5 * 60)
 
 // Sketch version
-#define FIRMWARE_VERSION "0.2"
+#define FIRMWARE_VERSION "0.3"
 
 // all given in milliseconds
 #define SERVER_HANDLE_INTERVAL 10

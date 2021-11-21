@@ -124,6 +124,8 @@ private:
     // used for calibrating, in fill'n'water mode
     bool filling_started_empty;
     bool watering_started_full;
+
+    String menu_entered_digits;
 };
 
 #endif // _STATEMACHINE_H_
