@@ -265,6 +265,7 @@ void Statemachine::input(int n) {
                     switch_to(error);
                 } else {
                     selected_plants.set(selected_id - 1);
+                    menu_entered_digits = "";
                     switch_to(auto_plant);
                 }
             }
@@ -387,6 +388,7 @@ void Statemachine::input(int n) {
                     switch_to(error);
                 } else {
                     selected_plants.set(selected_id - 1);
+                    menu_entered_digits = "";
                     switch_to(fillnwater_plant);
                 }
             }
