@@ -20,6 +20,8 @@
 #ifndef _GPIO_BANK_H_
 #define _GPIO_BANK_H_
 
+void gpio_i2c_init(void);
+
 class GPIOBank {
 public:
     GPIOBank(int _size);

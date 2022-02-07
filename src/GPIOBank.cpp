@@ -20,12 +20,79 @@
 #include <Arduino.h>
 
 #include "GPIOBank.h"
+#include "config.h"
+#include "config_pins.h"
 
 #ifdef PLATFORM_ESP
+#include <PCF8574.h>
+#include <Wire.h>
 #include "WifiStuff.h"
 #endif // PLATFORM_ESP
 
 //#define GPIO_HIGH_AS_INPUT
+
+// ----------------------------------------------------------------------------
+
+#if (I2C_GPIO_EXPANDER_COUNT > 0)
+static PCF8574 expand[I2C_GPIO_EXPANDER_COUNT];
+#endif
+
+void gpio_i2c_init(void) {
+#if (I2C_GPIO_EXPANDER_COUNT > 0)
+    for (int i = 0; i < I2C_GPIO_EXPANDER_COUNT; i++) {
+        expand[i].begin(0xFF);
+    }
+#endif
+}
+
+static void gpio_pinMode(int pin, int value) {
+    if (pin < 100) {
+        pinMode(pin, value);
+    } else {
+        pin -= 100;
+        int ex = pin / 8;
+        pin = pin % 8;
+        if (ex < I2C_GPIO_EXPANDER_COUNT) {
+            uint8_t mask = expand[ex].getButtonMask();
+            if (value == OUTPUT) {
+                mask &= ~(1 << pin);
+            } else {
+                mask |= (1 << pin);
+            }
+            expand[ex].setButtonMask(mask);
+        }
+    }
+}
+
+static void gpio_digitalWrite(int pin, int value) {
+    if (pin < 100) {
+        digitalWrite(pin, value);
+    } else {
+        pin -= 100;
+        int ex = pin / 8;
+        pin = pin % 8;
+        if (ex < I2C_GPIO_EXPANDER_COUNT) {
+            expand[ex].write(pin, value);
+        }
+    }
+}
+
+static int gpio_digitalRead(int pin) {
+    if (pin < 100) {
+        return digitalRead(pin);
+    } else {
+        pin -= 100;
+        int ex = pin / 8;
+        pin = pin % 8;
+        if (ex < I2C_GPIO_EXPANDER_COUNT) {
+            return expand[ex].readButton(pin);
+        } else {
+            return 0;
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
 
 GPIOBank::GPIOBank(int _size) {
     size = _size;
@@ -48,10 +115,10 @@ void GPIOBank::setPinNumbers(int _pins[]) {
 void GPIOBank::setOutput(void) {
     for (int i = 0; i < size; i++) {
 #ifdef GPIO_HIGH_AS_INPUT
-        pinMode(pins[i], INPUT);
+        gpio_pinMode(pins[i], INPUT);
 #else
-        pinMode(pins[i], OUTPUT);
-        digitalWrite(pins[i], HIGH);
+        gpio_pinMode(pins[i], OUTPUT);
+        gpio_digitalWrite(pins[i], HIGH);
 #endif
         out_state[i] = true;
     }
@@ -61,9 +128,9 @@ void GPIOBank::setOutput(void) {
 void GPIOBank::setInput(bool pullup) {
     for (int i = 0; i < size; i++) {
         if (pullup) {
-            pinMode(pins[i], INPUT_PULLUP);
+            gpio_pinMode(pins[i], INPUT_PULLUP);
         } else {
-            pinMode(pins[i], INPUT);
+            gpio_pinMode(pins[i], INPUT);
         }
     }
     is_output = false;
@@ -81,13 +148,13 @@ void GPIOBank::setPin(int n, bool state) {
     if ((n >= 0) && (n < size)) {
 #ifdef GPIO_HIGH_AS_INPUT
         if (state) {
-            pinMode(pins[n], OUTPUT);
-            digitalWrite(pins[n], LOW);
+            gpio_pinMode(pins[n], OUTPUT);
+            gpio_digitalWrite(pins[n], LOW);
         } else {
-            pinMode(pins[n], INPUT);
+            gpio_pinMode(pins[n], INPUT);
         }
 #else
-        digitalWrite(pins[n], (!state) ? HIGH : LOW);
+        gpio_digitalWrite(pins[n], (!state) ? HIGH : LOW);
 #endif
 
         out_state[n] = !state;
@@ -109,7 +176,7 @@ bool GPIOBank::getPin(int n) {
         if (is_output) {
             return !out_state[n];
         } else {
-            return (!digitalRead(pins[n]));
+            return (!gpio_digitalRead(pins[n]));
         }
     } else {
         return false;

@@ -56,9 +56,7 @@ bool doing_multi_input = false;
 
 #ifdef FUNCTION_CONTROL
 
-#ifndef FUNCTION_UI
 #include <Wire.h>
-#endif // ! FUNCTION_UI
 
 #include "Plants.h"
 #include "Statemachine.h"
@@ -457,13 +455,6 @@ Plants *get_plants(void) {
 }
 
 void control_setup(void) {
-    plants.setValvePins(valve_pins);
-    plants.setPumpPins(pump_pins);
-    plants.setSwitchPins(switch_pins, true);
-    plants.setAuxPins(aux_pins);
-    
-#ifndef FUNCTION_UI
-    
     debug.println("Initializing I2C Master");
     Wire.setClock(I2C_BUS_SPEED);
     
@@ -473,12 +464,18 @@ void control_setup(void) {
     Wire.begin();
 #endif // defined(I2C_SDA_PIN) && defined(I2C_SCL_PIN)
     
+    gpio_i2c_init();
+
 #ifdef DEBUG_WAIT_FOR_SERIAL_CONN
     debug.println("Wait for Serial");
     while (!Serial);
 #endif // DEBUG_WAIT_FOR_SERIAL_CONN
-    
-#endif // ! FUNCTION_UI
+
+    debug.println("Initializing GPIOs");
+    plants.setValvePins(valve_pins);
+    plants.setPumpPins(pump_pins);
+    plants.setSwitchPins(switch_pins, true);
+    plants.setAuxPins(aux_pins);
 }
 
 void control_begin(void) {
@@ -540,24 +537,27 @@ void write_to_all(const char *a, const char *b,
     
     //debug.println("write_to_all i2c");
     
+    // rarely some lines don't update
+    delay(100);
+
     for (int i = 0; i < 4; i++) {
         Wire.beginTransmission(OWN_I2C_ADDRESS);
         Wire.write(0x03); // display command
-    
+
         Wire.write(i);
-        
+
         int l = strlen(lines[i]);
         Wire.write(l);
-        
+
         for (int n = 0; n < l; n++) {
             Wire.write(lines[i][n]);
         }
-    
+
         Wire.endTransmission();
     }
     
     Wire.beginTransmission(OWN_I2C_ADDRESS);
-    Wire.write(0x04); // display command
+    Wire.write(0x04); // button command
     Wire.write((int8_t)num_input);
     Wire.endTransmission();
     

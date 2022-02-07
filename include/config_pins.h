@@ -31,6 +31,10 @@
 
 #ifdef FUNCTION_UI
 
+/*
+ * AVR UI
+ */
+
 #define SERIAL_LCD_TX_PIN 10
 
 #define KEYMATRIX_ROWS 4
@@ -43,6 +47,10 @@
 // ----------------------------------------------------------------------------
 
 #ifdef FUNCTION_CONTROL
+
+/*
+ * AVR Controller
+ */
 
 // out 1, out 2, out 3, out 4, in
 #define VALVE_COUNT 5
@@ -75,6 +83,10 @@
 
 #ifdef FUNCTION_UI
 
+/*
+ * ESP UI
+ */
+
 #error configuration not supported
 
 #endif // FUNCTION_UI
@@ -83,8 +95,28 @@
 
 #ifdef FUNCTION_CONTROL
 
-#define PLANT_COUNT 4
-#define PLANT_PINS 27, 14, 5, 18
+/*
+ * ESP Controller
+ */
+
+/*
+ * I2C Port Expander PCF8574(A)
+ *
+ * Address ranges:
+ * PCF8574: 0x20 - 0x27
+ * PCF8574A: 0x38 - 0x3F
+ */
+#define I2C_GPIO_EXPANDER_COUNT 1
+#define I2C_GPIO_EXPANDER_ADDR 0x20
+
+/*
+ * GPIO Numbering Scheme
+ * 000 - 099: normal ESP32 GPIOs
+ * 100 - 228: consecutive I2C Expander GPIOs
+ */
+
+#define PLANT_COUNT 8
+#define PLANT_PINS 27, 14, 5, 18, 100, 101, 102, 103
 
 #define INLET_PIN 15
 
