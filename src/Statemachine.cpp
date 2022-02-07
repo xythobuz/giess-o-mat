@@ -22,6 +22,7 @@
 #include "WifiStuff.h"
 #include "Statemachine.h"
 #include "config.h"
+#include "config_pins.h"
 
 Statemachine::DigitBuffer::DigitBuffer(int _size) {
     size = _size;
@@ -74,6 +75,7 @@ uint32_t Statemachine::DigitBuffer::getNumber(void) {
 
 static const char *state_names[] = {
     stringify(init),
+    stringify(door_select),
     stringify(menu_a),
     stringify(menu_b),
     stringify(menu_c),
@@ -142,7 +144,93 @@ void Statemachine::begin(void) {
 
 void Statemachine::input(int n) {
     if (state == init) {
+#if (LOCK_COUNT > 0) && defined(DOOR_LOCK_PIN)
+        if (n == -1) {
+            if (db.hasDigits()) {
+                backspace();
+                db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
+            } else {
+                switch_to(menu_a);
+            }
+        } else if (n == -2) {
+            switch_to(menu_a);
+        } else {
+            if (db.spaceLeft()) {
+                db.addDigit(n);
+                //menu_entered_digits += String(n);
+                menu_entered_digits += String("*");
+                switch_to(state);
+            } else {
+                backspace();
+            }
+
+            uint32_t n = db.getNumber();
+            if (n == DOOR_LOCK_PIN) {
+                db.clear();
+                menu_entered_digits = "";
+                selected_plants.clear();
+                switch_to(door_select);
+            } else if (db.countDigits() >= DOOR_LOCK_PIN_MAX_DIGITS) {
+                db.clear();
+                menu_entered_digits = "";
+                switch_to(state);
+            }
+        }
+#else
         switch_to(menu_a);
+#endif
+    } else if (state == door_select) {
+#if (LOCK_COUNT > 0)
+        if (n == -1) {
+            if (db.hasDigits()) {
+                backspace();
+                db.removeDigit();
+                if (menu_entered_digits.length() > 0) {
+                    menu_entered_digits.remove(menu_entered_digits.length() - 1);
+                    switch_to(state);
+                }
+            } else {
+                switch_to(init);
+            }
+        } else if (n == -2) {
+            if (!db.hasDigits()) {
+                for (int i = 0; i < LOCK_COUNT; i++) {
+                    if (selected_plants.isSet(i)) {
+                        plants.startAux(STIRRER_COUNT + i);
+                        delay(DOOR_LOCK_ON_TIME);
+                        plants.stopAux(STIRRER_COUNT + i);
+                    }
+                }
+                plants.stopAllAux();
+                switch_to(menu_a);
+            } else {
+                selected_id = number_input();
+                if ((selected_id <= 0) || (selected_id > LOCK_COUNT)) {
+                    error_condition = F("Invalid lock ID!");
+                    switch_to(error);
+                } else {
+                    selected_plants.set(selected_id - 1);
+                    menu_entered_digits = "";
+                    switch_to(state);
+                }
+            }
+        } else {
+            if (db.spaceLeft()) {
+                db.addDigit(n);
+                menu_entered_digits += String(n);
+                switch_to(state);
+            } else {
+                backspace();
+            }
+        }
+#else
+        // should never be reached
+        switch_to(menu_a);
+#endif
     } else if ((state == menu_a) || (state == menu_b) || (state == menu_c)) {
         if (n == 1) {
             switch_to(auto_mode_a);
@@ -154,6 +242,10 @@ void Statemachine::input(int n) {
             switch_to(menu_valves);
         } else if (n == 5) {
             switch_to(menu_aux);
+#if (LOCK_COUNT > 0) && !defined(DOOR_LOCK_PIN)
+        } else if (n == 6) {
+            switch_to(door_select);
+#endif
         } else if (n == -1) {
             switch_to(init);
         } else if (n == -2) {
@@ -210,7 +302,9 @@ void Statemachine::input(int n) {
                 switch_to(error);
             }
         } else if (n == 4) {
-            plants.startAux(0);
+            for (int i = 0; i < STIRRER_COUNT; i++) {
+                plants.startAux(i);
+            }
             selected_id = 1;
             selected_time = AUTO_STIRR_RUNTIME;
             start_time = millis();
@@ -933,12 +1027,30 @@ void Statemachine::switch_to(States s) {
     
     if (s == init) {
         String a = String(F("- Giess-o-mat V")) + FIRMWARE_VERSION + String(F(" -"));
-        
+
+#if (LOCK_COUNT > 0) && defined(DOOR_LOCK_PIN)
+        String b = String(F("PIN: ")) + menu_entered_digits;
+        print(a.c_str(),
+              "* or # to enter menu",
+              "Enter PIN for locks:",
+              b.c_str(),
+              3);
+#else
         print(a.c_str(),
               "Usage:  Enter number",
               "* Delete prev. digit",
               "# Execute input num.",
               -1);
+#endif
+    } else if (s == door_select) {
+        String a = String("(Input 1 to ") + String(LOCK_COUNT) + String(")");
+        String b = String(F("Door: ")) + menu_entered_digits;
+
+        print("- Select Door Lock -",
+              "Leave empty if done!",
+              a.c_str(),
+              b.c_str(),
+              3);
     } else if (s == menu_a) {
         print("----- Menu 1/3 -----",
               "1: Manual Operation",
@@ -954,7 +1066,11 @@ void Statemachine::switch_to(States s) {
     } else if (s == menu_c) {
         print("----- Menu 3/3 -----",
               "5: Aux. Outputs",
+#if (LOCK_COUNT > 0) && !defined(DOOR_LOCK_PIN)
+              "6: Door Locks",
+#else
               "",
+#endif
               "#: Go to page 1/3...",
               -1);
     } else if (state == automation_mode) {
@@ -1036,7 +1152,6 @@ void Statemachine::switch_to(States s) {
     } else if ((s == auto_plant) || (s == fillnwater_plant)) {
         String a = String("(Input 1 to ") + String(plants.countPlants()) + String(")");
         String b = String(F("Plant: ")) + menu_entered_digits;
-
 
         print("--- Select Plant ---",
               "Leave empty if done!",
@@ -1273,7 +1388,7 @@ void Statemachine::switch_to(States s) {
         String a = String("after ") + String((stop_time - start_time) / 1000UL) + String("s.");
 
         print("------- Done -------",
-              "Stirring finished",
+              "Aux. run finished",
               a.c_str(),
               "Hit any key for menu",
               -1);

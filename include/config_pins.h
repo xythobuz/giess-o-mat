@@ -128,9 +128,11 @@
 #define PUMP_COUNT 3
 #define PUMP_PINS 2, 0, 4
 
-// stirrer
-#define AUX_COUNT 1
-#define AUX_PINS 19
+// stirrer, locks
+#define STIRRER_COUNT 1
+#define LOCK_COUNT 2
+#define AUX_COUNT (STIRRER_COUNT + LOCK_COUNT)
+#define AUX_PINS 19, 104, 105
 
 // bottom, top
 #define SWITCH_COUNT 2

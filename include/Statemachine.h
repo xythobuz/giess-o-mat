@@ -29,6 +29,7 @@ class Statemachine {
 public:
     enum States {
         init = 0,
+        door_select,
         menu_a, // manual, auto
         menu_b, // pumps, valves
         menu_c, // aux
