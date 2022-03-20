@@ -67,6 +67,7 @@ int valve_pins[VALVE_COUNT] = { VALVE_PINS };
 int pump_pins[PUMP_COUNT] = { PUMP_PINS };
 int switch_pins[SWITCH_COUNT] = { SWITCH_PINS };
 int aux_pins[AUX_COUNT] = { AUX_PINS };
+int kickstart_pins[VALVE_COUNT - 1] = { KICKSTART_PINS };
 
 Statemachine sm(write_to_all, backspace);
 
@@ -476,6 +477,7 @@ void control_setup(void) {
     plants.setPumpPins(pump_pins);
     plants.setSwitchPins(switch_pins, true);
     plants.setAuxPins(aux_pins);
+    plants.setKickstartPins(kickstart_pins);
 }
 
 void control_begin(void) {

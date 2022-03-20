@@ -34,12 +34,14 @@
 // ----------------------------------------------------------------------------
 
 #if (I2C_GPIO_EXPANDER_COUNT > 0)
+static uint8_t expand_addr[I2C_GPIO_EXPANDER_COUNT] = { I2C_GPIO_EXPANDER_ADDR };
 static PCF8574 expand[I2C_GPIO_EXPANDER_COUNT];
 #endif
 
 void gpio_i2c_init(void) {
 #if (I2C_GPIO_EXPANDER_COUNT > 0)
     for (int i = 0; i < I2C_GPIO_EXPANDER_COUNT; i++) {
+        expand[i].setAddress(expand_addr[i]);
         expand[i].begin(0xFF);
     }
 #endif
@@ -48,6 +50,8 @@ void gpio_i2c_init(void) {
 static void gpio_pinMode(int pin, int value) {
     if (pin < 100) {
         pinMode(pin, value);
+    } else if (pin < 0) {
+        // ignore negative pin numbers
     } else {
         pin -= 100;
         int ex = pin / 8;
@@ -67,6 +71,8 @@ static void gpio_pinMode(int pin, int value) {
 static void gpio_digitalWrite(int pin, int value) {
     if (pin < 100) {
         digitalWrite(pin, value);
+    } else if (pin < 0) {
+        // ignore negative pin numbers
     } else {
         pin -= 100;
         int ex = pin / 8;
@@ -80,6 +86,9 @@ static void gpio_digitalWrite(int pin, int value) {
 static int gpio_digitalRead(int pin) {
     if (pin < 100) {
         return digitalRead(pin);
+    } else if (pin < 0) {
+        // ignore negative pin numbers
+        return 0;
     } else {
         pin -= 100;
         int ex = pin / 8;
@@ -109,6 +118,14 @@ GPIOBank::~GPIOBank(void) {
 void GPIOBank::setPinNumbers(int _pins[]) {
     for (int i = 0; i < size; i++) {
         pins[i] = _pins[i];
+    }
+}
+
+int GPIOBank::getPinNumber(int pin) {
+    if ((pin >= 0) && (pin < size)) {
+        return pins[pin];
+    } else {
+        return -1;
     }
 }
 

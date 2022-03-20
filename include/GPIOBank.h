@@ -28,6 +28,7 @@ public:
     ~GPIOBank(void);
     
     void setPinNumbers(int _pins[]);
+    int getPinNumber(int pin);
     void setOutput(void);
     void setInput(bool pullup);
     

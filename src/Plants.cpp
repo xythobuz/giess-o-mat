@@ -28,9 +28,9 @@
 // pumps: no of fertilizers
 // switches: 2, low and high level
 Plants::Plants(int valve_count, int pump_count, int switch_count, int aux_count) :
-        valves(valve_count), pumps(pump_count), switches(switch_count), aux(aux_count) {
+        valves(valve_count), pumps(pump_count), switches(switch_count), aux(aux_count),
+        kickstart(valve_count - 1) {
 }
-
     
 GPIOBank *Plants::getValves(void) {
     return &valves;
@@ -46,6 +46,10 @@ GPIOBank *Plants::getSwitches(void) {
 
 GPIOBank *Plants::getAux(void) {
     return &aux;
+}
+
+GPIOBank *Plants::getKickstart(void) {
+    return &kickstart;
 }
 
 void Plants::setValvePins(int pins[]) {
@@ -69,6 +73,12 @@ void Plants::setAuxPins(int pins[]) {
     aux.setPinNumbers(pins);
     aux.setOutput();
     aux.setAll(false);
+}
+
+void Plants::setKickstartPins(int pins[]) {
+    kickstart.setPinNumbers(pins);
+    kickstart.setOutput();
+    kickstart.setAll(false);
 }
 
 void Plants::abort(void) {
@@ -143,12 +153,20 @@ int Plants::countPlants(void) {
     return valves.getSize() - 1;
 }
 
-void Plants::startPlant(int id) {
+void Plants::startPlant(int id, bool do_kickstart) {
     debug.print("Plants::startPlant ");
-    debug.println(id);
+    debug.print(id);
+    debug.print(", ");
+    debug.println(do_kickstart);
     
     if ((id >= 0) && (id < countPlants())) {
-        valves.setPin(id, true);
+        if (do_kickstart) {
+            valves.setPin(id, false);
+            kickstart.setPin(id, true);
+        } else {
+            kickstart.setPin(id, false);
+            valves.setPin(id, true);
+        }
     }
 }
 
@@ -158,6 +176,7 @@ void Plants::stopPlant(int id) {
     
     if ((id >= 0) && (id < countPlants())) {
         valves.setPin(id, false);
+        kickstart.setPin(id, false);
     }
 }
 

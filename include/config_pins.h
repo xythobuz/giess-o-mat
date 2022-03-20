@@ -106,8 +106,8 @@
  * PCF8574: 0x20 - 0x27
  * PCF8574A: 0x38 - 0x3F
  */
-#define I2C_GPIO_EXPANDER_COUNT 1
-#define I2C_GPIO_EXPANDER_ADDR 0x20
+#define I2C_GPIO_EXPANDER_COUNT 2
+#define I2C_GPIO_EXPANDER_ADDR 0x20, 0x21
 
 /*
  * GPIO Numbering Scheme
@@ -123,6 +123,10 @@
 // out 1, out 2, out 3, out 4, in
 #define VALVE_COUNT (PLANT_COUNT + 1)
 #define VALVE_PINS PLANT_PINS, INLET_PIN
+
+// kickstarting pumps, same count as plants!
+// set pin to -1 to disable kickstart for this plant.
+#define KICKSTART_PINS -1, -1, -1, -1, 108, 109, 110, 111
 
 // a, b, c
 #define PUMP_COUNT 3

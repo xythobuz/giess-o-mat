@@ -42,11 +42,13 @@ public:
         auto_tank_run,
         auto_stirr_run,
         auto_plant, // select plant
+        auto_plant_kickstart_run,
         auto_plant_run,
         auto_done,
 
         fillnwater_plant, // select plants
         fillnwater_tank_run,
+        fillnwater_kickstart_run,
         fillnwater_plant_run,
 
         automation_mode,

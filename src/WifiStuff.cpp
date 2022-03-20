@@ -217,6 +217,18 @@ void wifi_send_status_broadcast(void) {
         }
     }
     ws += " ],\n";
+
+    ws += F("\"kickstart\": [ ");
+    for (int i = 0; i < VALVE_COUNT - 1; i++) {
+        ws += "\"";
+        ws += get_plants()->getKickstart()->getPin(i) ? "1" : "0";
+        ws += "\"";
+
+        if (i < (VALVE_COUNT - 2)) {
+            ws += ", ";
+        }
+    }
+    ws += " ],\n";
     
     ws += "\"switchstate\": \"";
     Plants::Waterlevel wl = get_plants()->getWaterlevel();
@@ -268,31 +280,7 @@ void handleRoot() {
     message += F("font-family: monospace;\n");
     message += F("}\n");
     
-    message += F(".switch {\n");
-    message += F("width: max-content;\n");
-    message += F("border: 1px solid black;\n");
-    message += F("border-radius: 50%;\n");
-    message += F("padding: 2em;\n");
-    message += F("margin: 1em;\n");
-    message += F("}\n");
-    
-    message += F(".valve {\n");
-    message += F("width: max-content;\n");
-    message += F("border: 1px solid black;\n");
-    message += F("border-radius: 50%;\n");
-    message += F("padding: 2em;\n");
-    message += F("margin: 1em;\n");
-    message += F("}\n");
-    
-    message += F(".pump {\n");
-    message += F("width: max-content;\n");
-    message += F("border: 1px solid black;\n");
-    message += F("border-radius: 50%;\n");
-    message += F("padding: 2em;\n");
-    message += F("margin: 1em;\n");
-    message += F("}\n");
-
-    message += F(".aux {\n");
+    message += F(".ioelem {\n");
     message += F("width: max-content;\n");
     message += F("border: 1px solid black;\n");
     message += F("border-radius: 50%;\n");
@@ -419,7 +407,7 @@ void handleRoot() {
     
     message += F("<div class='container'>\n");
     for (int i = 0; i < SWITCH_COUNT; i++) {
-        message += F("<div class='switch' style='background-color: ");
+        message += F("<div class='ioelem switch' style='background-color: ");
         bool v = get_plants()->getSwitches()->getPin(i);
         
 #ifdef INVERT_SENSOR_BOTTOM
@@ -448,7 +436,7 @@ void handleRoot() {
     message += F("Valves:\n");
     message += F("<div class='container'>\n");
     for (int i = 0; i < VALVE_COUNT; i++) {
-        message += F("<div class='valve' style='background-color: ");
+        message += F("<div class='ioelem valve' style='background-color: ");
         if (get_plants()->getValves()->getPin(i)) {
             message += F("red");
         } else {
@@ -463,7 +451,7 @@ void handleRoot() {
     message += F("Pumps:\n");
     message += F("<div class='container'>\n");
     for (int i = 0; i < PUMP_COUNT; i++) {
-        message += F("<div class='pump' style='background-color: ");
+        message += F("<div class='ioelem pump' style='background-color: ");
         if (get_plants()->getPumps()->getPin(i)) {
             message += F("red");
         } else {
@@ -478,8 +466,23 @@ void handleRoot() {
     message += F("Aux:\n");
     message += F("<div class='container'>\n");
     for (int i = 0; i < AUX_COUNT; i++) {
-        message += F("<div class='aux' style='background-color: ");
+        message += F("<div class='ioelem aux' style='background-color: ");
         if (get_plants()->getAux()->getPin(i)) {
+            message += F("red");
+        } else {
+            message += F("green");
+        }
+        message += F(";'>A");
+        message += String(i + 1);
+        message += F("</div>");
+    }
+    message += F("</div><hr>\n");
+
+    message += F("Kickstart:\n");
+    message += F("<div class='container'>\n");
+    for (int i = 0; i < VALVE_COUNT - 1; i++) {
+        message += F("<div class='ioelem kickstart' style='background-color: ");
+        if (get_plants()->getKickstart()->getPin(i)) {
             message += F("red");
         } else {
             message += F("green");
@@ -641,6 +644,17 @@ void handleRoot() {
     message += F(           "aux[i].style = 'background-color: green;';\n");
     message += F(       "} else {\n");
     message += F(           "aux[i].style = 'background-color: red;';\n");
+    message += F(       "}\n");
+    message += F(    "}\n");
+
+    message += F(    "for (let i = 0; i < ");
+    message += String(VALVE_COUNT - 1);
+    message += F("; i++) {\n");
+    message += F(       "var kickstart = document.getElementsByClassName('kickstart');\n");
+    message += F(       "if (msg.kickstart[i] == '0') {\n");
+    message += F(           "kickstart[i].style = 'background-color: green;';\n");
+    message += F(       "} else {\n");
+    message += F(           "kickstart[i].style = 'background-color: red;';\n");
     message += F(       "}\n");
     message += F(    "}\n");
     

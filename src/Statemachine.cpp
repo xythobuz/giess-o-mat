@@ -87,10 +87,12 @@ static const char *state_names[] = {
     stringify(auto_tank_run),
     stringify(auto_stirr_run),
     stringify(auto_plant),
+    stringify(auto_plant_kickstart_run),
     stringify(auto_plant_run),
     stringify(auto_done),
     stringify(fillnwater_plant),
     stringify(fillnwater_tank_run),
+    stringify(fillnwater_kickstart_run),
     stringify(fillnwater_plant_run),
     stringify(automation_mode),
     stringify(menu_pumps),
@@ -203,6 +205,7 @@ void Statemachine::input(int n) {
                         plants.startAux(STIRRER_COUNT + i);
                         delay(DOOR_LOCK_ON_TIME);
                         plants.stopAux(STIRRER_COUNT + i);
+                        delay(DOOR_LOCK_NEXT_DELAY);
                     }
                 }
                 plants.stopAllAux();
@@ -315,7 +318,9 @@ void Statemachine::input(int n) {
             switch_to((state == auto_fert_a) ? auto_fert_b : auto_fert_a);
         }
     } else if ((state == auto_fert_run) || (state == auto_tank_run)
-            || (state == auto_stirr_run)) {
+            || (state == auto_stirr_run) || (state == auto_plant_run)
+            || (state == auto_plant_kickstart_run)
+            || (state == fillnwater_kickstart_run)) {
         plants.abort();
         stop_time = millis();
         switch_to(auto_done);
@@ -335,15 +340,30 @@ void Statemachine::input(int n) {
             if (!db.hasDigits()) {
                 auto wl = plants.getWaterlevel();
                 if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+                    // check if kickstart is required for this
+                    bool need_kickstart = false;
                     for (int i = 0; i < plants.countPlants(); i++) {
                         if (selected_plants.isSet(i)) {
-                            plants.startPlant(i);
+                            if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                                need_kickstart = true;
+                            }
+                        }
+                    }
+
+                    // start kickstart/valve as needed
+                    for (int i = 0; i < plants.countPlants(); i++) {
+                        if (selected_plants.isSet(i)) {
+                            plants.startPlant(i, need_kickstart);
                         }
                     }
                     
                     selected_time = MAX_AUTO_PLANT_RUNTIME;
                     start_time = millis();
-                    switch_to(auto_plant_run);
+                    if (need_kickstart) {
+                        switch_to(auto_plant_kickstart_run);
+                    } else {
+                        switch_to(auto_plant_run);
+                    }
                 } else if (wl == Plants::empty) {
                     stop_time = millis();
                     switch_to(auto_mode_b);
@@ -372,10 +392,6 @@ void Statemachine::input(int n) {
                 backspace();
             }
         }
-    } else if (state == auto_plant_run) {
-        plants.abort();
-        stop_time = millis();
-        switch_to(auto_done);
     } else if (state == auto_done) {
         switch_to(auto_mode_a);
     } else if (state == menu_pumps) {
@@ -449,9 +465,20 @@ void Statemachine::input(int n) {
                         stop_time = millis();
                         auto wl = plants.getWaterlevel();
                         if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+                            // check if kickstart is required for this
+                            bool need_kickstart = false;
                             for (int i = 0; i < plants.countPlants(); i++) {
                                 if (selected_plants.isSet(i)) {
-                                    plants.startPlant(i);
+                                    if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                                        need_kickstart = true;
+                                    }
+                                }
+                            }
+
+                            // start kickstart/valve as needed
+                            for (int i = 0; i < plants.countPlants(); i++) {
+                                if (selected_plants.isSet(i)) {
+                                    plants.startPlant(i, need_kickstart);
                                 }
                             }
 
@@ -460,7 +487,11 @@ void Statemachine::input(int n) {
 
                             selected_time = MAX_AUTO_PLANT_RUNTIME;
                             start_time = millis();
-                            switch_to(fillnwater_plant_run);
+                            if (need_kickstart) {
+                                switch_to(fillnwater_kickstart_run);
+                            } else {
+                                switch_to(fillnwater_plant_run);
+                            }
                         } else if (wl == Plants::empty) {
                             stop_time = millis();
                             switch_to(auto_mode_a);
@@ -500,9 +531,20 @@ void Statemachine::input(int n) {
         stop_time = millis();
         auto wl = plants.getWaterlevel();
         if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+            // check if kickstart is required for this
+            bool need_kickstart = false;
             for (int i = 0; i < plants.countPlants(); i++) {
                 if (selected_plants.isSet(i)) {
-                    plants.startPlant(i);
+                    if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                        need_kickstart = true;
+                    }
+                }
+            }
+
+            // start kickstart/valve as needed
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    plants.startPlant(i, need_kickstart);
                 }
             }
 
@@ -510,7 +552,11 @@ void Statemachine::input(int n) {
 
             selected_time = MAX_AUTO_PLANT_RUNTIME;
             start_time = millis();
-            switch_to(fillnwater_plant_run);
+            if (need_kickstart) {
+                switch_to(fillnwater_kickstart_run);
+            } else {
+                switch_to(fillnwater_plant_run);
+            }
         } else if (wl == Plants::empty) {
             switch_to(auto_mode_a);
         } else if (wl == Plants::invalid) {
@@ -660,7 +706,8 @@ void Statemachine::input(int n) {
                 if (selected_id >= (plants.countPlants() + 1)) {
                     plants.openWaterInlet();
                 } else {
-                    plants.startPlant(selected_id - 1);
+                    // TODO support testing kickstart
+                    plants.startPlant(selected_id - 1, false);
                 }
                 
                 switch_to(menu_valves_run);
@@ -803,7 +850,7 @@ void Statemachine::act(void) {
             switch_to(state);
         }
     }
-    
+
 #ifdef CHECK_SENSORS_VALVE_PUMP_MENU_FULL
     if ((state == menu_pumps_run) || ((state == menu_valves_run) && (selected_id == (plants.countPlants() + 1)))) {
         // check water level state
@@ -820,7 +867,7 @@ void Statemachine::act(void) {
         }
     }
 #endif // CHECK_SENSORS_VALVE_PUMP_MENU_FULL
-    
+
 #ifdef CHECK_SENSORS_VALVE_PUMP_MENU_EMPTY
     if ((state == menu_valves_run) && (selected_id <= plants.countPlants())) {
         // check water level state
@@ -837,7 +884,33 @@ void Statemachine::act(void) {
         }
     }
 #endif // CHECK_SENSORS_VALVE_PUMP_MENU_EMPTY
-    
+
+    if ((state == auto_plant_kickstart_run) || (state == fillnwater_kickstart_run)) {
+        unsigned long runtime = millis() - start_time;
+        if ((runtime / 1000UL) >= KICKSTART_RUNTIME) {
+            // kickstart is done, switch over to valves
+            plants.abort();
+            start_time = millis();
+
+            // start required valves
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    plants.startPlant(i, false);
+                }
+            }
+
+            if (state == auto_plant_kickstart_run) {
+                switch_to(auto_plant_run);
+            } else {
+                switch_to(fillnwater_plant_run);
+            }
+        } else if ((millis() - last_animation_time) >= 500) {
+            // update animation if needed
+            last_animation_time = millis();
+            switch_to(state);
+        }
+    }
+
     if ((state == auto_fert_run) || (state == auto_tank_run) || (state == fillnwater_tank_run)) {
         unsigned long runtime = millis() - start_time;
         if ((runtime / 1000UL) >= selected_time) {
@@ -847,9 +920,20 @@ void Statemachine::act(void) {
             if (state == fillnwater_tank_run) {
                 auto wl = plants.getWaterlevel();
                 if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+                    // check if kickstart is required for this
+                    bool need_kickstart = false;
                     for (int i = 0; i < plants.countPlants(); i++) {
                         if (selected_plants.isSet(i)) {
-                            plants.startPlant(i);
+                            if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                                need_kickstart = true;
+                            }
+                        }
+                    }
+
+                    // start kickstart/valve as needed
+                    for (int i = 0; i < plants.countPlants(); i++) {
+                        if (selected_plants.isSet(i)) {
+                            plants.startPlant(i, need_kickstart);
                         }
                     }
 
@@ -857,7 +941,11 @@ void Statemachine::act(void) {
 
                     selected_time = MAX_AUTO_PLANT_RUNTIME;
                     start_time = millis();
-                    switch_to(fillnwater_plant_run);
+                    if (need_kickstart) {
+                        switch_to(fillnwater_kickstart_run);
+                    } else {
+                        switch_to(fillnwater_plant_run);
+                    }
                 } else if (wl == Plants::empty) {
                     stop_time = millis();
                     switch_to(auto_done);
@@ -905,9 +993,20 @@ void Statemachine::act(void) {
 
                 auto wl = plants.getWaterlevel();
                 if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+                    // check if kickstart is required for this
+                    bool need_kickstart = false;
                     for (int i = 0; i < plants.countPlants(); i++) {
                         if (selected_plants.isSet(i)) {
-                            plants.startPlant(i);
+                            if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                                need_kickstart = true;
+                            }
+                        }
+                    }
+
+                    // start kickstart/valve as needed
+                    for (int i = 0; i < plants.countPlants(); i++) {
+                        if (selected_plants.isSet(i)) {
+                            plants.startPlant(i, need_kickstart);
                         }
                     }
 
@@ -915,7 +1014,11 @@ void Statemachine::act(void) {
 
                     selected_time = MAX_AUTO_PLANT_RUNTIME;
                     start_time = millis();
-                    switch_to(fillnwater_plant_run);
+                    if (need_kickstart) {
+                        switch_to(fillnwater_kickstart_run);
+                    } else {
+                        switch_to(fillnwater_plant_run);
+                    }
                 } else if (wl == Plants::empty) {
                     stop_time = millis();
                     switch_to(auto_mode_a);
@@ -1158,6 +1261,21 @@ void Statemachine::switch_to(States s) {
               a.c_str(),
               b.c_str(),
               3);
+    } else if ((s == auto_plant_kickstart_run) || (s == fillnwater_kickstart_run)) {
+        unsigned long runtime = millis() - start_time;
+        String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(KICKSTART_RUNTIME) + String('s');
+
+        unsigned long anim = runtime * 20UL / (KICKSTART_RUNTIME * 1000UL);
+        String b;
+        for (unsigned long i = 0; i < anim; i++) {
+            b += '#';
+        }
+
+        print("---- Kick-Start ----",
+              a.c_str(),
+              b.c_str(),
+              "Hit any key to stop!",
+              -1);
     } else if ((s == auto_plant_run) || (s == fillnwater_plant_run)) {
         unsigned long runtime = millis() - start_time;
         String a = String("Time: ") + String(runtime / 1000UL) + String("s / ") + String(selected_time) + String('s');

@@ -37,9 +37,10 @@
 #define MAX_PUMP_RUNTIME 30
 #define MAX_VALVE_RUNTIME (45 * 60)
 #define MAX_AUX_RUNTIME (5 * 60)
+#define KICKSTART_RUNTIME 10
 
 // Sketch version
-#define FIRMWARE_VERSION "0.4"
+#define FIRMWARE_VERSION "0.5"
 
 // all given in milliseconds
 #define SERVER_HANDLE_INTERVAL 10
@@ -70,7 +71,8 @@
 #define INFLUXDB_DATABASE "giessomat"
 
 #define DOOR_LOCK_PIN 4223
-#define DOOR_LOCK_ON_TIME 100 /* in ms */
 #define DOOR_LOCK_PIN_MAX_DIGITS 6
+#define DOOR_LOCK_ON_TIME 200 /* in ms */
+#define DOOR_LOCK_NEXT_DELAY 100 /* in ms */
 
 #endif // _CONFIG_H_

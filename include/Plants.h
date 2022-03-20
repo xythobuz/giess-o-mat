@@ -40,6 +40,7 @@ public:
     void setPumpPins(int pins[]);
     void setSwitchPins(int pins[], bool pullup);
     void setAuxPins(int pins[]);
+    void setKickstartPins(int pins[]);
     
     void abort(void);
     
@@ -53,7 +54,7 @@ public:
     void stopAllFertilizers(void);
     
     int countPlants(void);
-    void startPlant(int id);
+    void startPlant(int id, bool do_kickstart);
     void stopPlant(int id);
     void stopAllPlants(void);
 
@@ -66,12 +67,14 @@ public:
     GPIOBank *getPumps(void);
     GPIOBank *getSwitches(void);
     GPIOBank *getAux(void);
+    GPIOBank *getKickstart(void);
     
 private:
     GPIOBank valves;
     GPIOBank pumps;
     GPIOBank switches;
     GPIOBank aux;
+    GPIOBank kickstart;
 };
 
 extern Plants plants;
