@@ -52,9 +52,14 @@
  * AVR Controller
  */
 
+#define I2C_GPIO_EXPANDER_COUNT 0
+//#define I2C_GPIO_EXPANDER_ADDR 0x20, 0x21
+
 // out 1, out 2, out 3, out 4, in
 #define VALVE_COUNT 5
 #define VALVE_PINS 10, 11, 12, 14, 15
+
+#define KICKSTART_PINS -1, -1, -1, -1
 
 // a, b, c
 #define PUMP_COUNT 3
@@ -65,7 +70,9 @@
 #define SWITCH_PINS 19, 20
 
 // stirrer
-#define AUX_COUNT 1
+#define STIRRER_COUNT 1
+#define LOCK_COUNT 0
+#define AUX_COUNT (STIRRER_COUNT + LOCK_COUNT)
 #define AUX_PINS 21
 
 #endif // FUNCTION_CONTROL

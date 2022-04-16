@@ -23,9 +23,12 @@
 #include "config.h"
 #include "config_pins.h"
 
-#ifdef PLATFORM_ESP
+#ifdef TWI_GPIO
 #include <PCF8574.h>
 #include <Wire.h>
+#endif
+
+#ifdef PLATFORM_ESP
 #include "WifiStuff.h"
 #endif // PLATFORM_ESP
 
@@ -33,13 +36,13 @@
 
 // ----------------------------------------------------------------------------
 
-#if (I2C_GPIO_EXPANDER_COUNT > 0)
+#if defined(TWI_GPIO) && (I2C_GPIO_EXPANDER_COUNT > 0)
 static uint8_t expand_addr[I2C_GPIO_EXPANDER_COUNT] = { I2C_GPIO_EXPANDER_ADDR };
 static PCF8574 expand[I2C_GPIO_EXPANDER_COUNT];
 #endif
 
 void gpio_i2c_init(void) {
-#if (I2C_GPIO_EXPANDER_COUNT > 0)
+#if defined(TWI_GPIO) && (I2C_GPIO_EXPANDER_COUNT > 0)
     for (int i = 0; i < I2C_GPIO_EXPANDER_COUNT; i++) {
         expand[i].setAddress(expand_addr[i]);
         expand[i].begin(0xFF);
@@ -53,6 +56,7 @@ static void gpio_pinMode(int pin, int value) {
     } else if (pin < 0) {
         // ignore negative pin numbers
     } else {
+#if defined(TWI_GPIO) && (I2C_GPIO_EXPANDER_COUNT > 0)
         pin -= 100;
         int ex = pin / 8;
         pin = pin % 8;
@@ -65,6 +69,7 @@ static void gpio_pinMode(int pin, int value) {
             }
             expand[ex].setButtonMask(mask);
         }
+#endif
     }
 }
 
@@ -74,12 +79,14 @@ static void gpio_digitalWrite(int pin, int value) {
     } else if (pin < 0) {
         // ignore negative pin numbers
     } else {
+#if defined(TWI_GPIO) && (I2C_GPIO_EXPANDER_COUNT > 0)
         pin -= 100;
         int ex = pin / 8;
         pin = pin % 8;
         if (ex < I2C_GPIO_EXPANDER_COUNT) {
             expand[ex].write(pin, value);
         }
+#endif
     }
 }
 
@@ -90,6 +97,7 @@ static int gpio_digitalRead(int pin) {
         // ignore negative pin numbers
         return 0;
     } else {
+#if defined(TWI_GPIO) && (I2C_GPIO_EXPANDER_COUNT > 0)
         pin -= 100;
         int ex = pin / 8;
         pin = pin % 8;
@@ -98,6 +106,9 @@ static int gpio_digitalRead(int pin) {
         } else {
             return 0;
         }
+#else
+        return 0;
+#endif
     }
 }
 

@@ -24,6 +24,8 @@
 #include "config.h"
 #include "config_pins.h"
 
+#ifdef FUNCTION_CONTROL
+
 Statemachine::DigitBuffer::DigitBuffer(int _size) {
     size = _size;
     pos = 0;
@@ -1521,3 +1523,5 @@ void Statemachine::switch_to(States s) {
         debug.println(s);
     }
 }
+
+#endif
