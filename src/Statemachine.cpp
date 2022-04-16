@@ -115,6 +115,8 @@ static const char *state_names[] = {
     stringify(error)
 };
 
+static int auto_pump_runtime[PUMP_COUNT] = AUTO_PUMP_RUNTIME;
+
 const char *Statemachine::getStateName(void) {
     return state_names[state];
 }
@@ -290,12 +292,13 @@ void Statemachine::input(int n) {
             switch_to((state == auto_mode_a) ? auto_mode_b : auto_mode_a);
         }
     } else if ((state == auto_fert_a) || (state == auto_fert_b)) {
+        // TODO fertilizer number currently "hardcoded" to 3 in UI
         if ((n >= 1) && (n <= 3)) {
             auto wl = plants.getWaterlevel();
             if ((wl != Plants::full) && (wl != Plants::invalid)) {
                 plants.startFertilizer(n - 1);
                 selected_id = n;
-                selected_time = AUTO_PUMP_RUNTIME;
+                selected_time = auto_pump_runtime[n - 1];
                 start_time = millis();
                 switch_to(auto_fert_run);
             } else if (wl == Plants::full) {

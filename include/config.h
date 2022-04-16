@@ -31,7 +31,6 @@
 
 // in seconds
 #define MAX_TANK_FILL_TIME (80)
-#define AUTO_PUMP_RUNTIME 4
 #define AUTO_STIRR_RUNTIME 60
 #define MAX_AUTO_PLANT_RUNTIME (35 * 60)
 #define MAX_PUMP_RUNTIME 30

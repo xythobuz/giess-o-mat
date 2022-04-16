@@ -65,6 +65,9 @@
 #define PUMP_COUNT 3
 #define PUMP_PINS 16, 17, 18
 
+// ensure a default for each PUMP_COUNT
+#define AUTO_PUMP_RUNTIME { 20, 5, 5 }
+
 // bottom, top
 #define SWITCH_COUNT 2
 #define SWITCH_PINS 19, 20
@@ -138,6 +141,9 @@
 // a, b, c
 #define PUMP_COUNT 3
 #define PUMP_PINS 2, 0, 4
+
+// ensure a default for each PUMP_COUNT
+#define AUTO_PUMP_RUNTIME { 20, 5, 5 }
 
 // stirrer, locks
 #define STIRRER_COUNT 1
