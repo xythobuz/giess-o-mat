@@ -723,12 +723,12 @@ void wifi_setup() {
     // https://github.com/espressif/arduino-esp32/issues/2501#issuecomment-513602522
     debug.println("WiFi: connection work-around");
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
-        if (info.disconnected.reason == 202) {
+        if (info.wifi_sta_disconnected.reason == 202) {
             esp_sleep_enable_timer_wakeup(10);
             esp_deep_sleep_start();
             delay(100);
         }
-    }, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+    }, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
     // Connect to WiFi AP
     debug.println("WiFi: SSID=" WIFI_SSID);
