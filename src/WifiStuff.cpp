@@ -723,30 +723,37 @@ void wifi_setup() {
     // https://github.com/espressif/arduino-esp32/issues/2501#issuecomment-513602522
     debug.println("WiFi: connection work-around");
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
-        if (info.wifi_sta_disconnected.reason == 202) {
+        if (info.disconnected.reason == 202) {
             esp_sleep_enable_timer_wakeup(10);
             esp_deep_sleep_start();
             delay(100);
         }
-    }, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    }, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
 
     // Connect to WiFi AP
     debug.println("WiFi: SSID=" WIFI_SSID);
     debug.print("WiFi: connecting");
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PW);
-    while (WiFi.status() != WL_CONNECTED) {
-        debug.print(".");
+
+    int ws;
+    while ((ws = WiFi.status()) != WL_CONNECTED) {
+        debug.print(String(" ") + String(ws));
         delay(LED_CONNECT_BLINK_INTERVAL);
         digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
     debug.println();
+
+    debug.println(String("WiFi: status=") + String(WiFi.status()));
     
     // Set hostname workaround
     debug.println("WiFi: set hostname work-around");
     WiFi.setHostname(hostname.c_str());
 
 #endif
+
+    debug.print("WiFi: got IPv4: ");
+    debug.println(WiFi.localIP());
 
 #ifdef ENABLE_INFLUXDB_LOGGING
     // Setup InfluxDB Client
