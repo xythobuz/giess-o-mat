@@ -26,7 +26,7 @@ public:
     ~BoolField(void);
     
     void clear(void);
-    void set(int n);
+    void set(int n, bool value = true);
     bool isSet(int n);
     int countSet(void);
     int getFirstSet(void);

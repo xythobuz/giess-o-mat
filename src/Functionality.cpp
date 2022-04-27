@@ -540,7 +540,7 @@ void write_to_all(const char *a, const char *b,
     //debug.println("write_to_all i2c");
     
     // rarely some lines don't update
-    delay(100);
+    delay(50);
 
     for (int i = 0; i < 4; i++) {
         Wire.beginTransmission(OWN_I2C_ADDRESS);

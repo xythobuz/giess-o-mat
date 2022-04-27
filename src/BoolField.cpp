@@ -34,8 +34,8 @@ void BoolField::clear(void) {
     }
 }
 
-void BoolField::set(int n) {
-    field[n] = true;
+void BoolField::set(int n, bool value) {
+    field[n] = value;
 }
 
 bool BoolField::isSet(int n) {

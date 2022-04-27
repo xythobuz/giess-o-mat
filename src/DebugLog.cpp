@@ -67,11 +67,11 @@ void DebugLog::print(int n) {
 }
 
 void DebugLog::println(void) {
-    print(String('\n'));
+    print(String(F("\r\n")));
 }
 
 void DebugLog::println(String s) {
-    s += '\n';
+    s += String(F("\r\n"));
     print(s);
 }
 

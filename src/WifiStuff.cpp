@@ -50,6 +50,7 @@ WebSocketsServer socket = WebSocketsServer(81);
 SimpleUpdater updater;
 unsigned long last_server_handle_time = 0;
 unsigned long last_websocket_update_time = 0;
+int wifi_ok = 0;
 
 String message_buffer_a;
 String message_buffer_b;
@@ -259,8 +260,14 @@ void handleRoot() {
     message += F("<title>Gieß-o-mat</title>\n");
     
     message += F("<style type='text/css'>\n");
+    message += F(".head {\n");
+    message += F("text-align: center;\n");
+    message += F("}\n");
+
     message += F(".container {\n");
     message += F("display: flex;\n");
+    message += F("max-width: 1200px;\n");
+    message += F("margin: auto;\n");
     message += F("}\n");
     
     message += F(".ui {\n");
@@ -284,8 +291,8 @@ void handleRoot() {
     message += F("width: max-content;\n");
     message += F("border: 1px solid black;\n");
     message += F("border-radius: 50%;\n");
-    message += F("padding: 2em;\n");
-    message += F("margin: 1em;\n");
+    message += F("padding: 1em;\n");
+    message += F("margin: 0.5em;\n");
     message += F("}\n");
     
     message += F(".info {\n");
@@ -299,7 +306,9 @@ void handleRoot() {
     message += F(".log {\n");
     message += F("max-height: 300px;\n");
     message += F("padding: 0 1.0em;\n");
-    message += F("margin: 1em 0;\n");
+    message += F("max-width: 1200px;\n");
+    message += F("margin: auto;\n");
+    message += F("margin-top: 1.5em;\n");
     message += F("border: 1px dashed black;\n");
     message += F("font-family: monospace;\n");
     message += F("overflow-y: scroll;\n");
@@ -356,8 +365,8 @@ void handleRoot() {
     message += F("</style>\n");
     
     message += F("</head><body>\n");
-    message += F("<h1>Gieß-o-mat</h1>\n");
-    
+    message += F("<h1 class='head'>Gieß-o-mat</h1>\n");
+
     message += F("<div class='container'>\n");
     message += F("<div class='ui'>\n");
     message += F("<pre class='lcd'>\n");
@@ -509,6 +518,9 @@ void handleRoot() {
     message += F("\n</p><p>\n");
     message += F("MAC: ");
     message += WiFi.macAddress();
+    message += F("\n<br>\n");
+    message += F("IPv4: ");
+    message += WiFi.localIP().toString();
     message += F("\n</p>\n");
 
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -597,7 +609,7 @@ void handleRoot() {
     message += F(    "}\n");
     message += F(    "var msg = JSON.parse(e.data);\n");
     message += F(    "var str = msg.a + '\\n' + msg.b + '\\n' + msg.c + '\\n' + msg.d;\n");
-    message += F(    "console.log(str);\n");
+    //message += F(    "console.log(str);\n");
     message += F(    "var lcd = document.getElementsByClassName('lcd');\n");
     message += F(    "lcd[0].innerHTML = str;\n");
     message += F(    "var state = document.getElementById('state');\n");
@@ -696,6 +708,8 @@ void wifi_setup() {
     // Build hostname string
     String hostname = "giess-o-mat";
 
+    int ws = 0, connect_attempts = 0;
+
 #if defined(ARDUINO_ARCH_ESP8266)
 
     // Connect to WiFi AP
@@ -705,12 +719,15 @@ void wifi_setup() {
     
     debug.print("WiFi: connecting");
     WiFi.begin(WIFI_SSID, WIFI_PW);
-    while (WiFi.status() != WL_CONNECTED) {
-        debug.print(".");
+
+    while (((ws = WiFi.status()) != WL_CONNECTED) && (connect_attempts < MAX_WIFI_CONNECT_ATTEMPTS)) {
+        connect_attempts++;
+        debug.print(String(" ") + String(ws));
         delay(LED_CONNECT_BLINK_INTERVAL);
         digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
     debug.println();
+    debug.println(String("WiFi: status=") + String(WiFi.status()));
     
 #elif defined(ARDUINO_ARCH_ESP32)
 
@@ -736,14 +753,13 @@ void wifi_setup() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PW);
 
-    int ws;
-    while ((ws = WiFi.status()) != WL_CONNECTED) {
+    while (((ws = WiFi.status()) != WL_CONNECTED) && (connect_attempts < MAX_WIFI_CONNECT_ATTEMPTS)) {
+        connect_attempts++;
         debug.print(String(" ") + String(ws));
         delay(LED_CONNECT_BLINK_INTERVAL);
         digitalWrite(BUILTIN_LED_PIN, !digitalRead(BUILTIN_LED_PIN));
     }
     debug.println();
-
     debug.println(String("WiFi: status=") + String(WiFi.status()));
     
     // Set hostname workaround
@@ -752,8 +768,16 @@ void wifi_setup() {
 
 #endif
 
+    if ((connect_attempts >= MAX_WIFI_CONNECT_ATTEMPTS)
+            || (WiFi.status() != WL_CONNECTED)) {
+        debug.println("WiFi: init failed!");
+        wifi_ok = 0;
+        return;
+    }
+    wifi_ok = 1;
+
     debug.print("WiFi: got IPv4: ");
-    debug.println(WiFi.localIP());
+    debug.println(WiFi.localIP().toString());
 
 #ifdef ENABLE_INFLUXDB_LOGGING
     // Setup InfluxDB Client
@@ -781,6 +805,16 @@ void wifi_setup() {
 }
 
 void wifi_run() {
+    // reset ESP every 6h to be safe
+    if ((millis() >= (6UL * 60UL * 60UL * 1000UL)) && (sm_is_idle())) {
+        ESP.restart();
+    }
+
+    if (!wifi_ok) {
+        // nothing to handle
+        return;
+    }
+
     if ((millis() - last_server_handle_time) >= SERVER_HANDLE_INTERVAL) {
         last_server_handle_time = millis();
         server.handleClient();
@@ -794,11 +828,6 @@ void wifi_run() {
     if ((millis() - last_websocket_update_time) >= WEBSOCKET_UPDATE_INTERVAL) {
         last_websocket_update_time = millis();
         wifi_send_status_broadcast();
-    }
-    
-    // reset ESP every 6h to be safe
-    if ((millis() >= (6UL * 60UL * 60UL * 1000UL)) && (sm_is_idle())) {
-        ESP.restart();
     }
     
 #ifdef ENABLE_GPIO_TEST

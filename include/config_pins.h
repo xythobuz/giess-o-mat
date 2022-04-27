@@ -66,7 +66,7 @@
 #define PUMP_PINS 16, 17, 18
 
 // ensure a default for each PUMP_COUNT
-#define AUTO_PUMP_RUNTIME { 20, 5, 5 }
+#define AUTO_PUMP_RUNTIME { 20, 10, 10 }
 
 // bottom, top
 #define SWITCH_COUNT 2
@@ -136,14 +136,14 @@
 
 // kickstarting pumps, same count as plants!
 // set pin to -1 to disable kickstart for this plant.
-#define KICKSTART_PINS -1, -1, -1, -1, 108, 109, 110, 111
+#define KICKSTART_PINS 112, 113, 114, 115, 108, 109, 110, 111
 
 // a, b, c
 #define PUMP_COUNT 3
 #define PUMP_PINS 2, 0, 4
 
 // ensure a default for each PUMP_COUNT
-#define AUTO_PUMP_RUNTIME { 20, 5, 5 }
+#define AUTO_PUMP_RUNTIME { 20, 10, 10 }
 
 // stirrer, locks
 #define STIRRER_COUNT 1
