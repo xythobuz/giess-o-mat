@@ -348,18 +348,190 @@ void Statemachine::input(int n) {
         } else if (n == -2) {
             switch_to((state == auto_fert_a) ? auto_fert_b : auto_fert_a);
         }
+    } else if (state == fullauto_stirr_run) {
+        // allow user to stop stirring and continue with fertilizers
+        plants.abort();
+        stop_time = millis();
+        if (selected_ferts.countSet() > 0) {
+            selected_time = auto_pump_runtime[0];
+            for (int i = 0; i < plants.countFertilizers(); i++) {
+                if (auto_pump_runtime[i] > selected_time) {
+                    selected_time = auto_pump_runtime[i];
+                }
+
+                if (selected_ferts.isSet(i)) {
+                    plants.startFertilizer(i);
+                }
+            }
+
+            start_time = millis();
+            switch_to(fullauto_fert_run);
+        } else {
+            auto wl = plants.getWaterlevel();
+            if ((wl != Plants::full) && (wl != Plants::invalid)) {
+                // if the waterlevel is currently empty, we
+                // set a flag to record the time to fill
+                filling_started_empty = (wl == Plants::empty);
+
+                plants.openWaterInlet();
+                selected_id = plants.countPlants() + 1;
+                selected_time = MAX_TANK_FILL_TIME;
+                start_time = millis();
+                switch_to(fullauto_tank_run);
+            } else if (wl == Plants::full) {
+                // check if kickstart is required for this
+                bool need_kickstart = false;
+                for (int i = 0; i < plants.countPlants(); i++) {
+                    if (selected_plants.isSet(i)) {
+                        if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                            need_kickstart = true;
+                        }
+                    }
+                }
+
+                // start kickstart/valve as needed
+                for (int i = 0; i < plants.countPlants(); i++) {
+                    if (selected_plants.isSet(i)) {
+                        plants.startPlant(i, need_kickstart);
+                    }
+                }
+
+                watering_started_full = (wl == Plants::full);
+
+                selected_time = MAX_AUTO_PLANT_RUNTIME;
+                start_time = millis();
+                if (need_kickstart) {
+                    switch_to(fullauto_kickstart_run);
+                } else {
+                    switch_to(fullauto_plant_run);
+                }
+            } else if (wl == Plants::invalid) {
+                plants.abort();
+                error_condition = F("Invalid sensor state");
+                state = fullauto_fert;
+                switch_to(error);
+            }
+        }
+    } else if (state == fullauto_fert_run) {
+        // allow user to stop fertizilers and continue with tank filling
+        auto wl = plants.getWaterlevel();
+        if ((wl != Plants::full) && (wl != Plants::invalid)) {
+            // if the waterlevel is currently empty, we
+            // set a flag to record the time to fill
+            filling_started_empty = (wl == Plants::empty);
+
+            plants.openWaterInlet();
+            selected_id = plants.countPlants() + 1;
+            selected_time = MAX_TANK_FILL_TIME;
+            start_time = millis();
+            switch_to(fullauto_tank_run);
+        } else if (wl == Plants::full) {
+            // check if kickstart is required for this
+            bool need_kickstart = false;
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                        need_kickstart = true;
+                    }
+                }
+            }
+
+            // start kickstart/valve as needed
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    plants.startPlant(i, need_kickstart);
+                }
+            }
+
+            watering_started_full = (wl == Plants::full);
+
+            selected_time = MAX_AUTO_PLANT_RUNTIME;
+            start_time = millis();
+            if (need_kickstart) {
+                switch_to(fullauto_kickstart_run);
+            } else {
+                switch_to(fullauto_plant_run);
+            }
+        } else if (wl == Plants::invalid) {
+            plants.abort();
+            error_condition = F("Invalid sensor state");
+            state = fullauto_fert;
+            switch_to(error);
+        }
+    } else if ((state == fullauto_tank_run)
+            || (state == fullauto_tank_purge_run)) {
+        // allow user to stop tank and continue with kickstart
+        plants.abort();
+        stop_time = millis();
+        auto wl = plants.getWaterlevel();
+        if ((wl != Plants::empty) && (wl != Plants::invalid)) {
+            // check if kickstart is required for this
+            bool need_kickstart = false;
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                        need_kickstart = true;
+                    }
+                }
+            }
+
+            // start kickstart/valve as needed
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    plants.startPlant(i, need_kickstart);
+                }
+            }
+
+            watering_started_full = (wl == Plants::full);
+
+            selected_time = MAX_AUTO_PLANT_RUNTIME;
+            start_time = millis();
+            if (need_kickstart) {
+                if (state == fullauto_tank_run) {
+                    switch_to(fullauto_kickstart_run);
+                } else {
+                    switch_to(fullauto_kickstart_purge_run);
+                }
+            } else {
+                if (state == fullauto_tank_run) {
+                    switch_to(fullauto_plant_run);
+                } else {
+                    switch_to(fullauto_plant_purge_run);
+                }
+            }
+        } else if (wl == Plants::empty) {
+            stop_time = millis();
+            switch_to(auto_done);
+        } else if (wl == Plants::invalid) {
+            error_condition = F("Invalid sensor state");
+            state = auto_mode_a;
+            switch_to(error);
+        }
+    } else if ((state == fullauto_kickstart_run)
+            || (state == fullauto_kickstart_purge_run)) {
+        // allow user to stop kickstarting and continue with plants
+        plants.abort();
+        selected_time = MAX_AUTO_PLANT_RUNTIME;
+        start_time = millis();
+
+        // start required valves
+        for (int i = 0; i < plants.countPlants(); i++) {
+            if (selected_plants.isSet(i)) {
+                plants.startPlant(i, false);
+            }
+        }
+
+        if (state == fullauto_kickstart_run) {
+            switch_to(fullauto_plant_run);
+        } else {
+            switch_to(fullauto_plant_purge_run);
+        }
     } else if ((state == auto_fert_run) || (state == auto_tank_run)
             || (state == auto_stirr_run) || (state == auto_plant_run)
             || (state == auto_plant_kickstart_run)
             || (state == fillnwater_kickstart_run)
-            || (state == fullauto_stirr_run)
-            || (state == fullauto_fert_run)
-            || (state == fullauto_tank_run)
-            || (state == fullauto_kickstart_run)
             || (state == fullauto_plant_run)
             || (state == fullauto_plant_overrun)
-            || (state == fullauto_tank_purge_run)
-            || (state == fullauto_kickstart_purge_run)
             || (state == fullauto_plant_purge_run)
             || (state == fullauto_plant_purge_overrun)) {
         plants.abort();
@@ -1119,6 +1291,7 @@ void Statemachine::act(void) {
         if ((runtime / 1000UL) >= KICKSTART_RUNTIME) {
             // kickstart is done, switch over to valves
             plants.abort();
+            selected_time = MAX_AUTO_PLANT_RUNTIME;
             start_time = millis();
 
             // start required valves
@@ -1153,6 +1326,12 @@ void Statemachine::act(void) {
                     selected_ferts.set(i, false);
                 }
             }
+        }
+
+        if ((millis() - last_animation_time) >= 500) {
+            // update animation if needed
+            last_animation_time = millis();
+            switch_to(state);
         }
 
         if (selected_ferts.countSet() <= 0) {
@@ -1438,37 +1617,53 @@ void Statemachine::act(void) {
         // check water level state
         auto wl = plants.getWaterlevel();
         if (wl == Plants::empty) {
-            plants.abort();
-            stop_time = millis();
-
-            // if we started watering with a full tank
-            // and then finished watering when it was empty
-            // and we were only watering a single plant
-            // look at this as a "calibration run" and record
-            // the time it took to empty the tank
-            if ((state == fillnwater_plant_run) && watering_started_full && (selected_plants.countSet() == 1)) {
-                unsigned long time_to_water = stop_time - start_time;
-                debug.print("Watering plant ");
-                debug.print(selected_plants.getFirstSet() + 1);
-                debug.print(" with the complete tank took ");
-                debug.print(String(time_to_water));
-                debug.println("ms");
-
-#if defined(PLATFORM_ESP)
-                bool success = wifi_write_database(time_to_water, "calibrated_watering", selected_plants.getFirstSet() + 1);
-                if (!success) {
-                    debug.print("Error writing to InfluxDB ");
-                    debug.print(INFLUXDB_HOST);
-                    debug.print(":");
-                    debug.print(INFLUXDB_PORT);
-                    debug.print("/");
-                    debug.print(INFLUXDB_DATABASE);
-                    debug.println("/calibrated_watering");
-                }
-#endif // PLATFORM_ESP
+            if ((state == auto_plant_run) || (state == fillnwater_plant_run)) {
+                plants.abort();
+                stop_time = millis();
             }
 
-            switch_to(auto_done);
+            if ((state == auto_plant_run) || (state == fillnwater_plant_run)
+            || (state == fullauto_plant_run)) {
+                // if we started watering with a full tank
+                // and then finished watering when it was empty
+                // and we were only watering a single plant
+                // look at this as a "calibration run" and record
+                // the time it took to empty the tank
+                if (watering_started_full && (selected_plants.countSet() == 1)) {
+                    unsigned long time_to_water = stop_time - start_time;
+                    debug.print("Watering plant ");
+                    debug.print(selected_plants.getFirstSet() + 1);
+                    debug.print(" with the complete tank took ");
+                    debug.print(String(time_to_water));
+                    debug.println("ms");
+
+    #if defined(PLATFORM_ESP)
+                    bool success = wifi_write_database(time_to_water, "calibrated_watering", selected_plants.getFirstSet() + 1);
+                    if (!success) {
+                        debug.print("Error writing to InfluxDB ");
+                        debug.print(INFLUXDB_HOST);
+                        debug.print(":");
+                        debug.print(INFLUXDB_PORT);
+                        debug.print("/");
+                        debug.print(INFLUXDB_DATABASE);
+                        debug.println("/calibrated_watering");
+                    }
+    #endif // PLATFORM_ESP
+                }
+            }
+
+            if ((state == auto_plant_run) || (state == fillnwater_plant_run)) {
+                switch_to(auto_done);
+            } else if (state == fullauto_plant_run) {
+                start_time = millis();
+                selected_time = OVERRUN_RUNTIME;
+                switch_to(fullauto_plant_overrun);
+            } else if (state == fullauto_plant_purge_run) {
+                start_time = millis();
+                selected_time = OVERRUN_RUNTIME;
+                switch_to(fullauto_plant_purge_overrun);
+
+            }
         } else if (wl == Plants::invalid) {
             plants.abort();
             error_condition = F("Invalid sensor state");

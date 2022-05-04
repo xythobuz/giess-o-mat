@@ -19,6 +19,7 @@
 
 #include <Arduino.h>
 
+#include "DebugLog.h"
 #include "GPIOBank.h"
 #include "config.h"
 #include "config_pins.h"
@@ -33,6 +34,9 @@
 #endif // PLATFORM_ESP
 
 //#define GPIO_HIGH_AS_INPUT
+
+//#define DEBUG_PRINT_OUTPUTS
+//#define DEBUG_DISABLE_OUTPUTS
 
 // ----------------------------------------------------------------------------
 
@@ -74,6 +78,7 @@ static void gpio_pinMode(int pin, int value) {
 }
 
 static void gpio_digitalWrite(int pin, int value) {
+#ifndef DEBUG_DISABLE_OUTPUTS
     if (pin < 100) {
         digitalWrite(pin, value);
     } else if (pin < 0) {
@@ -88,6 +93,7 @@ static void gpio_digitalWrite(int pin, int value) {
         }
 #endif
     }
+#endif
 }
 
 static int gpio_digitalRead(int pin) {
@@ -186,7 +192,14 @@ void GPIOBank::setPin(int n, bool state) {
 #endif
 
         out_state[n] = !state;
-        
+
+#ifdef DEBUG_PRINT_OUTPUTS
+        debug.print("Set GPIO ");
+        debug.print(pins[n]);
+        debug.print(" to ");
+        debug.println(out_state[n]);
+#endif
+
 #ifdef PLATFORM_ESP
         wifi_schedule_websocket();
 #endif // PLATFORM_ESP
