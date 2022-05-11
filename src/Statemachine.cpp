@@ -663,6 +663,12 @@ void Statemachine::input(int n) {
                     return;
                 }
 
+#ifdef FULLAUTO_MIN_PLANT_COUNT
+                if (selected_plants.countSet() < FULLAUTO_MIN_PLANT_COUNT) {
+                    return;
+                }
+#endif
+
                 // check if we need to run fertilizers
                 if (selected_ferts.countSet() > 0) {
                     // stirr before pumping fertilizers
