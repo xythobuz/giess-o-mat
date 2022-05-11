@@ -119,6 +119,17 @@ bool wifi_write_database(int duration, const char *type, int id) {
     success = influx.write(measurement);
 #endif // ENABLE_INFLUXDB_LOGGING
 
+    if (!success) {
+        debug.print("Error writing to InfluxDB ");
+        debug.print(INFLUXDB_HOST);
+        debug.print(":");
+        debug.print(INFLUXDB_PORT);
+        debug.print("/");
+        debug.print(INFLUXDB_DATABASE);
+        debug.print("/");
+        debug.println(type);
+    }
+
     return success;
 }
 
@@ -134,6 +145,10 @@ void wifi_schedule_websocket(void) {
 }
 
 void wifi_send_status_broadcast(void) {
+    if (WiFi.status() != WL_CONNECTED) {
+        return;
+    }
+
     if (socket.connectedClients() <= 0) {
         return;
     }
