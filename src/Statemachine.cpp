@@ -414,6 +414,8 @@ void Statemachine::input(int n) {
         }
     } else if (state == fullauto_fert_run) {
         // allow user to stop fertizilers and continue with tank filling
+        plants.abort();
+        stop_time = millis();
         auto wl = plants.getWaterlevel();
         if ((wl != Plants::full) && (wl != Plants::invalid)) {
             // if the waterlevel is currently empty, we
