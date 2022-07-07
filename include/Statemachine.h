@@ -52,19 +52,20 @@ public:
         fillnwater_kickstart_run,
         fillnwater_plant_run,
 
-        fullauto_fert, // d i a
-        fullauto_plant, // d i a
-        fullauto_stirr_run, // d i a
-        fullauto_fert_run, // d i a
-        fullauto_tank_run, // d i a
-        fullauto_kickstart_run, // d i a
-        fullauto_plant_run, // d i a
-        fullauto_plant_overrun, // d i a
-        fullauto_tank_purge_run, // d i a
-        fullauto_kickstart_purge_run, // d i a
-        fullauto_plant_purge_run, // d i a
-        fullauto_plant_purge_overrun, // d i a
-        fullauto_done, // d i a
+        fullauto_fert,
+        fullauto_plant,
+        fullauto_stirr_run,
+        fullauto_fert_run,
+        fullauto_tank_run,
+        fullauto_kickstart_run,
+        fullauto_plant_run,
+        fullauto_plant_overrun,
+        fullauto_tank_purge_run,
+        fullauto_kickstart_purge_run,
+        fullauto_plant_purge_run,
+        fullauto_plant_purge_overrun,
+        fullauto_plant_purge_over_pump_run,
+        fullauto_done,
 
         automation_mode,
         

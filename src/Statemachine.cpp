@@ -112,6 +112,7 @@ static const char *state_names[] = {
     stringify(fullauto_kickstart_purge_run),
     stringify(fullauto_plant_purge_run),
     stringify(fullauto_plant_purge_overrun),
+    stringify(fullauto_plant_purge_over_pump_run),
     stringify(fullauto_done),
 
     stringify(automation_mode),
@@ -535,7 +536,8 @@ void Statemachine::input(int n) {
             || (state == fullauto_plant_run)
             || (state == fullauto_plant_overrun)
             || (state == fullauto_plant_purge_run)
-            || (state == fullauto_plant_purge_overrun)) {
+            || (state == fullauto_plant_purge_overrun)
+            || (state == fullauto_plant_purge_over_pump_run)) {
         plants.abort();
         stop_time = millis();
         switch_to(auto_done);
@@ -1535,7 +1537,8 @@ void Statemachine::act(void) {
     if ((state == auto_plant_run) || (state == fillnwater_plant_run)
             || (state == fullauto_plant_run) || (state == fullauto_plant_overrun)
             || (state == fullauto_plant_purge_run)
-            || (state == fullauto_plant_purge_overrun)) {
+            || (state == fullauto_plant_purge_overrun)
+            || (state == fullauto_plant_purge_over_pump_run)) {
         unsigned long runtime = millis() - start_time;
         if ((runtime / 1000UL) >= selected_time) {
             if (state == fullauto_plant_run) {
@@ -1596,6 +1599,33 @@ void Statemachine::act(void) {
             } else if (state == fullauto_plant_purge_overrun) {
                 plants.abort();
                 stop_time = millis();
+
+                bool need_kickstart = false;
+                for (int i = 0; i < plants.countPlants(); i++) {
+                    if (selected_plants.isSet(i)) {
+                        if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                            need_kickstart = true;
+                        }
+                    }
+                }
+
+                start_time = millis();
+                selected_time = FULLAUTO_END_PUMP_TIME;
+
+                if (need_kickstart) {
+                    for (int i = 0; i < plants.countPlants(); i++) {
+                        if (selected_plants.isSet(i)) {
+                            plants.startPlant(i, true);
+                        }
+                    }
+
+                    switch_to(fullauto_plant_purge_over_pump_run);
+                } else {
+                    switch_to(fullauto_done);
+                }
+            } else if (state == fullauto_plant_purge_over_pump_run) {
+                plants.abort();
+                stop_time = millis();
                 switch_to(fullauto_done);
             } else {
                 plants.abort();
@@ -1608,7 +1638,9 @@ void Statemachine::act(void) {
             switch_to(state);
         }
 
-        if ((state == fullauto_plant_overrun) || (state == fullauto_plant_purge_overrun)) {
+        if ((state == fullauto_plant_overrun)
+                || (state == fullauto_plant_purge_overrun)
+                || (state == fullauto_plant_purge_over_pump_run)) {
             // overrun should not exit when sensor returns empty
             return;
         }
@@ -1652,7 +1684,6 @@ void Statemachine::act(void) {
                 start_time = millis();
                 selected_time = OVERRUN_RUNTIME;
                 switch_to(fullauto_plant_purge_overrun);
-
             }
         } else if (wl == Plants::invalid) {
             plants.abort();
@@ -1878,7 +1909,9 @@ void Statemachine::switch_to(States s) {
               b.c_str(),
               "Hit any key to stop!",
               -1);
-    } else if ((s == fullauto_plant_overrun) || (s == fullauto_plant_purge_overrun)) {
+    } else if ((s == fullauto_plant_overrun)
+            || (s == fullauto_plant_purge_overrun)
+            || (s == fullauto_plant_purge_over_pump_run)) {
         unsigned long runtime = millis() - start_time;
         String a = String(F("Time: ")) + String(runtime / 1000UL) + String(F("s / ")) + String(selected_time) + String('s');
 
