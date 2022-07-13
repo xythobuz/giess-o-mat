@@ -377,8 +377,37 @@ void handleRoot() {
     message += F("#state {\n");
     message += F("text-align: center;\n");
     message += F("}\n");
+
+    message += F("@media (prefers-color-scheme: dark) {\n");
+    message += F("body {\n");
+    message += F("background-color: black;\n");
+    message += F("color: white;\n");
+    message += F("}\n");
+    message += F(".ui {\n");
+    message += F("border: 1px dashed white;\n");
+    message += F("}\n");
+    message += F(".io {\n");
+    message += F("border: 1px dashed white;\n");
+    message += F("}\n");
+    message += F(".ioelem {\n");
+    message += F("border: 1px solid white;\n");
+    message += F("}\n");
+    message += F(".info {\n");
+    message += F("border: 1px dashed white;\n");
+    message += F("}\n");
+    message += F(".log {\n");
+    message += F("border: 1px dashed white;\n");
+    message += F("}\n");
+    message += F(".pad {\n");
+    message += F("background: #222222;\n");
+    message += F("border: 3px solid white;\n");
+    message += F("}\n");
+    message += F(".lcd {\n");
+    message += F("border: 5px solid white;\n");
+    message += F("}\n");
+    message += F("}\n");
+
     message += F("</style>\n");
-    
     message += F("</head><body>\n");
     message += F("<h1 class='head'>Gieß-o-mat</h1>\n");
 
@@ -456,6 +485,21 @@ void handleRoot() {
         message += F("</div>");
     }
     message += F("</div><hr>\n");
+
+    message += F("Kickstart:\n");
+    message += F("<div class='container'>\n");
+    for (int i = 0; i < VALVE_COUNT - 1; i++) {
+        message += F("<div class='ioelem kickstart' style='background-color: ");
+        if (get_plants()->getKickstart()->getPin(i)) {
+            message += F("red");
+        } else {
+            message += F("green");
+        }
+        message += F(";'>A");
+        message += String(i + 1);
+        message += F("</div>");
+    }
+    message += F("</div><hr>\n");
     
     message += F("Valves:\n");
     message += F("<div class='container'>\n");
@@ -492,21 +536,6 @@ void handleRoot() {
     for (int i = 0; i < AUX_COUNT; i++) {
         message += F("<div class='ioelem aux' style='background-color: ");
         if (get_plants()->getAux()->getPin(i)) {
-            message += F("red");
-        } else {
-            message += F("green");
-        }
-        message += F(";'>A");
-        message += String(i + 1);
-        message += F("</div>");
-    }
-    message += F("</div><hr>\n");
-
-    message += F("Kickstart:\n");
-    message += F("<div class='container'>\n");
-    for (int i = 0; i < VALVE_COUNT - 1; i++) {
-        message += F("<div class='ioelem kickstart' style='background-color: ");
-        if (get_plants()->getKickstart()->getPin(i)) {
             message += F("red");
         } else {
             message += F("green");
