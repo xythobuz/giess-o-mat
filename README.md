@@ -19,6 +19,14 @@ Then simply run the build for all supported configurations with platformio.
 
 You can of course also use pio to flash your targets.
 
+There is also an optional Telegram bot integration.
+Register a new bot with the Telegram botfather and put the token into wifi.h as TELEGRAM_TOKEN.
+Compile and run the project, then send a message to the bot.
+Look for the chat ID in the log and put it into wifi.h in TRUSTED_IDS.
+
+    echo '#define TELEGRAM_TOKEN "XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"' >> include/wifi.h
+    echo '#define TRUSTED_IDS { "1234", "5678" }' >> include/wifi.h
+
 ## Hardware
 
 In general, the project consists of two parts, the controller and the ui.

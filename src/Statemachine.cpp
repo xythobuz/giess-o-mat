@@ -17,6 +17,7 @@
  * along with Giess-o-mat.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "wifi.h"
 #include "Plants.h"
 #include "DebugLog.h"
 #include "WifiStuff.h"
@@ -171,6 +172,79 @@ Statemachine::Statemachine(print_fn _print, backspace_fn _backspace)
 void Statemachine::begin(void) {
     switch_to(init);
 }
+
+#ifdef TELEGRAM_TOKEN
+
+void Statemachine::bot_abort(void) {
+    plants.abort();
+    stop_time = millis();
+    switch_to(auto_done);
+}
+
+void Statemachine::bot_start_auto(BoolField _ferts, BoolField _plants) {
+    selected_ferts = _ferts;
+    selected_plants = _plants;
+
+    // check if we need to run fertilizers
+    if (selected_ferts.countSet() > 0) {
+        // stirr before pumping fertilizers
+        for (int i = 0; i < STIRRER_COUNT; i++) {
+            plants.startAux(i);
+        }
+        selected_id = 1;
+        selected_time = AUTO_STIRR_RUNTIME;
+        start_time = millis();
+        switch_to(fullauto_stirr_run);
+    } else {
+        // immediately continue with filling tank
+        auto wl = plants.getWaterlevel();
+        if ((wl != Plants::full) && (wl != Plants::invalid)) {
+            // if the waterlevel is currently empty, we
+            // set a flag to record the time to fill
+            filling_started_empty = (wl == Plants::empty);
+
+            plants.openWaterInlet();
+            selected_id = plants.countPlants() + 1;
+            selected_time = MAX_TANK_FILL_TIME;
+            start_time = millis();
+            switch_to(fullauto_tank_run);
+        } else if (wl == Plants::full) {
+            // check if kickstart is required for this
+            bool need_kickstart = false;
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    if (plants.getKickstart()->getPinNumber(i) >= 0) {
+                        need_kickstart = true;
+                    }
+                }
+            }
+
+            // start kickstart/valve as needed
+            for (int i = 0; i < plants.countPlants(); i++) {
+                if (selected_plants.isSet(i)) {
+                    plants.startPlant(i, need_kickstart);
+                }
+            }
+
+            // for recording the flowrate
+            watering_started_full = (wl == Plants::full);
+
+            selected_time = MAX_AUTO_PLANT_RUNTIME;
+            start_time = millis();
+            if (need_kickstart) {
+                switch_to(fullauto_kickstart_run);
+            } else {
+                switch_to(fullauto_plant_run);
+            }
+        } else if (wl == Plants::invalid) {
+            error_condition = F("Invalid sensor state");
+            state = auto_mode_a;
+            switch_to(error);
+        }
+    }
+}
+
+#endif // TELEGRAM_TOKEN
 
 void Statemachine::input(int n) {
     if (state == init) {
@@ -1729,6 +1803,10 @@ void Statemachine::switch_to(States s) {
         debug.println(state_names[state]);
 
         menu_entered_digits = "";
+
+#ifdef PLATFORM_ESP
+        wifi_broadcast_state_change(state_names[state]);
+#endif
     }
     
     if (s == init) {

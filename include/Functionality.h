@@ -32,6 +32,7 @@ void ui_run(void);
 #ifdef FUNCTION_CONTROL
 
 #include "Plants.h"
+#include "BoolField.h"
 
 void control_setup(void);
 void control_begin(void);
@@ -42,6 +43,13 @@ void control_act_input(int n);
 
 Plants *get_plants(void);
 
+bool sm_is_idle(void);
+
+#ifdef TELEGRAM_TOKEN
+void sm_bot_abort(void);
+void sm_bot_start_auto(BoolField ferts, BoolField plants);
+#endif // TELEGRAM_TOKEN
+
 #endif // FUNCTION_CONTROL
 
 // ----------------------------------------------------------------------------
@@ -50,7 +58,5 @@ void blink_lcd(int n, int wait = 200);
 void write_to_all(const char *a, const char *b,
                   const char *c, const char *d, int num_input);
 void backspace(void);
-
-bool sm_is_idle(void);
 
 #endif // _FUNCTIONALITY_H_

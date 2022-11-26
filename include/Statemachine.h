@@ -123,6 +123,11 @@ public:
     
     const char *getStateName(void);
     bool isIdle(void);
+
+#ifdef TELEGRAM_TOKEN
+    void bot_abort(void);
+    void bot_start_auto(BoolField ferts, BoolField plants);
+#endif // TELEGRAM_TOKEN
     
 private:
     void switch_to(States s);

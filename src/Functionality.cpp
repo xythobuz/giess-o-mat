@@ -19,6 +19,7 @@
 
 #include <Arduino.h>
 
+#include "wifi.h"
 #include "config.h"
 #include "config_pins.h"
 #include "DebugLog.h"
@@ -74,6 +75,18 @@ Statemachine sm(write_to_all, backspace);
 bool sm_is_idle(void) {
     return sm.isIdle();
 }
+
+#ifdef TELEGRAM_TOKEN
+
+void sm_bot_abort(void) {
+    sm.bot_abort();
+}
+
+void sm_bot_start_auto(BoolField ferts, BoolField plants) {
+    sm.bot_start_auto(ferts, plants);
+}
+
+#endif // TELEGRAM_TOKEN
 
 #endif // FUNCTION_CONTROL
 

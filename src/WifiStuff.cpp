@@ -43,7 +43,26 @@
 #include "Functionality.h"
 #include "SimpleUpdater.h"
 #include "DebugLog.h"
+#include "BoolField.h"
 #include "WifiStuff.h"
+
+#ifdef TELEGRAM_TOKEN
+
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+
+//#define TELEGRAM_LOG_TIMINGS
+
+#if defined(ARDUINO_ARCH_ESP8266)
+X509List cert(TELEGRAM_CERTIFICATE_ROOT);
+#endif
+
+WiFiClientSecure secured_client;
+UniversalTelegramBot bot(TELEGRAM_TOKEN, secured_client);
+unsigned long last_telegram_time = 0;
+String trusted_chat_ids[] = TRUSTED_IDS;
+
+#endif // TELEGRAM_TOKEN
 
 UPDATE_WEB_SERVER server(80);
 WebSocketsServer socket = WebSocketsServer(81);
@@ -99,6 +118,239 @@ void handleGpioTest() {
 }
 
 #endif // ENABLE_GPIO_TEST
+
+void wifi_broadcast_state_change(const char *s) {
+#ifdef TELEGRAM_TOKEN
+    for (int n = 0; n < (sizeof(trusted_chat_ids) / sizeof(trusted_chat_ids[0])); n++) {
+        bot.sendMessage(trusted_chat_ids[n], "New state: " + String(s), "");
+    }
+#endif // TELEGRAM_TOKEN
+}
+
+#ifdef TELEGRAM_TOKEN
+enum telegram_state {
+    BOT_IDLE,
+    BOT_ASKED_FERT,
+    BOT_ASKED_PLANTS,
+    BOT_ASKED_CONFIRM
+};
+
+enum telegram_state bot_state = BOT_IDLE;
+String bot_lock = "";
+BoolField bot_plants(VALVE_COUNT - 1);
+BoolField bot_ferts(PUMP_COUNT);
+
+unsigned long telegram_update_interval() {
+    if (bot_state == BOT_IDLE) {
+        return TELEGRAM_UPDATE_INTERVAL_SLOW;
+    } else {
+        return TELEGRAM_UPDATE_INTERVAL_FAST;
+    }
+}
+
+String telegram_help() {
+    String s = "Usage:\n";
+    s += "Send /auto and follow prompts.\n";
+    s += "Send /abort to cancel menus.\n";
+    s += "Send /none to skip menus.\n";
+    s += "Send /begin to confirm menus.";
+    return s;
+}
+
+void telegram_handle_message(int message_id) {
+    if (!sm_is_idle()) {
+        debug.println("Telegram: message while machine in use");
+
+        if (bot.messages[message_id].text == "/abort") {
+            sm_bot_abort();
+            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted current cycle!", "");
+        } else {
+            bot.sendMessage(bot.messages[message_id].chat_id, "Machine is already in use.\nPlease try again later.", "");
+        }
+
+        return;
+    }
+
+    if ((bot_state == BOT_IDLE) && (bot_lock == "")) {
+        bot_lock = bot.messages[message_id].chat_id;
+        debug.println("Telegram: locked to " + bot_lock);
+    }
+
+    if (bot_lock != bot.messages[message_id].chat_id) {
+        debug.println("Telegram: bot locked. abort for chat " + bot.messages[message_id].chat_id);
+        bot.sendMessage(bot.messages[message_id].chat_id, "Bot is already in use.\nPlease try again later.", "");
+        return;
+    }
+
+    if (bot_state == BOT_IDLE) {
+        if (bot.messages[message_id].text == "/auto") {
+            String s = "Please enter fertilizer numbers.\n";
+            s += "Valid numbers: 1 to " + String(PUMP_COUNT) + "\n";
+            s += "Send /none to skip.\n";
+            s += "Send /abort to cancel.";
+            bot_ferts.clear();
+            bot_state = BOT_ASKED_FERT;
+            bot.sendMessage(bot.messages[message_id].chat_id, s, "");
+        } else if (bot.messages[message_id].text == "/abort") {
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "Nothing to abort.", "");
+        } else {
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, telegram_help(), "");
+        }
+    } else if (bot_state == BOT_ASKED_FERT) {
+        if (bot.messages[message_id].text == "/abort") {
+            bot_state = BOT_IDLE;
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted.", "");
+            return;
+        } else if (bot.messages[message_id].text != "/none") {
+            String buff;
+            for (int i = 0; i < bot.messages[message_id].text.length() + 1; i++) {
+                if ((i == bot.messages[message_id].text.length()) || (bot.messages[message_id].text[i] == ' ')) {
+                    if (buff.length() > 0) {
+                        int n = buff.toInt() - 1;
+                        buff = "";
+                        bot_ferts.set(n);
+                    }
+                } else if ((bot.messages[message_id].text[i] >= '0') && (bot.messages[message_id].text[i] <= '9')) {
+                    buff += bot.messages[message_id].text[i];
+                } else {
+                    bot_state = BOT_IDLE;
+                    bot_lock = "";
+                    bot.sendMessage(bot.messages[message_id].chat_id, "Invalid input.\nAborted.", "");
+                    return;
+                }
+            }
+        }
+
+        String s = "Please enter plant numbers.\n";
+        s += "Valid numbers: 1 to " + String(VALVE_COUNT - 1) + "\n";
+        s += "Send /abort to cancel.";
+        bot_plants.clear();
+        bot_state = BOT_ASKED_PLANTS;
+        bot.sendMessage(bot.messages[message_id].chat_id, s, "");
+    } else if (bot_state == BOT_ASKED_PLANTS) {
+        if (bot.messages[message_id].text == "/abort") {
+            bot_state = BOT_IDLE;
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted.", "");
+            return;
+        }
+
+        String buff;
+        for (int i = 0; i < bot.messages[message_id].text.length() + 1; i++) {
+            if ((i == bot.messages[message_id].text.length()) || (bot.messages[message_id].text[i] == ' ')) {
+                if (buff.length() > 0) {
+                    int n = buff.toInt() - 1;
+                    buff = "";
+                    bot_plants.set(n);
+                }
+            } else if ((bot.messages[message_id].text[i] >= '0') && (bot.messages[message_id].text[i] <= '9')) {
+                buff += bot.messages[message_id].text[i];
+            } else {
+                bot_state = BOT_IDLE;
+                bot_lock = "";
+                bot.sendMessage(bot.messages[message_id].chat_id, "Invalid input.\nAborted.", "");
+                return;
+            }
+        }
+
+        if (bot_plants.countSet() <= 0) {
+            bot_state = BOT_IDLE;
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "No plants selected.\nAborted.", "");
+            return;
+        }
+
+#ifdef FULLAUTO_MIN_PLANT_COUNT
+        if (bot_plants.countSet() < FULLAUTO_MIN_PLANT_COUNT) {
+            bot_state = BOT_IDLE;
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "Select at least " + String(FULLAUTO_MIN_PLANT_COUNT) + " plants.\nAborted.", "");
+            return;
+        }
+#endif
+
+        String s = "Input accepted.\nFertilizers:";
+        for (int i = 0; i < PUMP_COUNT; i++) {
+            if (bot_ferts.isSet(i)) {
+                s += " " + String(i + 1);
+            }
+        }
+        s += "\nPlants:";
+        for (int i = 0; i < (VALVE_COUNT - 1); i++) {
+            if (bot_plants.isSet(i)) {
+                s += " " + String(i + 1);
+            }
+        }
+        s += "\nOk? Send /begin to start or /abort to cancel.";
+        bot_state = BOT_ASKED_CONFIRM;
+        bot.sendMessage(bot.messages[message_id].chat_id, s, "");
+    } else if (bot_state == BOT_ASKED_CONFIRM) {
+        if (bot.messages[message_id].text == "/abort") {
+            bot_state = BOT_IDLE;
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted.", "");
+        } else if (bot.messages[message_id].text == "/begin") {
+            bot_state = BOT_IDLE;
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "Auto watering cycle started.", "");
+            sm_bot_start_auto(bot_ferts, bot_plants);
+        } else {
+            bot_state = BOT_IDLE;
+            bot_lock = "";
+            bot.sendMessage(bot.messages[message_id].chat_id, "Unknown message.\nAborted.", "");
+        }
+    } else {
+        debug.println("Telegram: invalid state");
+        bot_state = BOT_IDLE;
+        bot_lock = "";
+        bot.sendMessage(bot.messages[message_id].chat_id, "Internal error.\nPlease try again.", "");
+    }
+}
+
+void telegram_handler(int message_id) {
+    debug.println("Telegram: rx " + bot.messages[message_id].chat_id + " \"" + bot.messages[message_id].text + "\"");
+
+    bool found = false;
+    for (int n = 0; n < (sizeof(trusted_chat_ids) / sizeof(trusted_chat_ids[0])); n++) {
+        if (trusted_chat_ids[n] == bot.messages[message_id].chat_id) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        bot.sendMessage(bot.messages[message_id].chat_id, "Sorry, not authorized!", "");
+        return;
+    }
+
+    telegram_handle_message(message_id);
+}
+
+void telegram_poll() {
+#ifdef TELEGRAM_LOG_TIMINGS
+    unsigned long start = millis();
+#endif // TELEGRAM_LOG_TIMINGS
+
+    while (int count = bot.getUpdates(bot.last_message_received + 1)) {
+        for (int i = 0; i < count; i++) {
+            telegram_handler(i);
+        }
+    }
+
+#ifdef TELEGRAM_LOG_TIMINGS
+    unsigned long end = millis();
+    debug.println("Telegram: took " + String(end - start) + "ms");
+#endif // TELEGRAM_LOG_TIMINGS
+}
+
+void telegram_hello() {
+    for (int n = 0; n < (sizeof(trusted_chat_ids) / sizeof(trusted_chat_ids[0])); n++) {
+        bot.sendMessage(trusted_chat_ids[n], "Giess-o-mat v" FIRMWARE_VERSION " initialized.\nSend /auto to begin.", "");
+    }
+}
+#endif // TELEGRAM_TOKEN
 
 bool wifi_write_database(int duration, const char *type, int id) {
     bool success = false;
@@ -610,6 +862,18 @@ void handleRoot() {
 #endif
 
     message += F("<p>\n");
+#ifdef TELEGRAM_TOKEN
+    message += F("Telegram: ");
+    message += TELEGRAM_UPDATE_INTERVAL_SLOW;
+    message += F("ms / ");
+    message += TELEGRAM_UPDATE_INTERVAL_FAST;
+    message += F("ms\n");
+#else
+    message += F("Telegram bot not enabled!\n");
+#endif
+    message += F("</p>\n");
+
+    message += F("<p>\n");
 #ifdef ENABLE_INFLUXDB_LOGGING
     message += F("InfluxDB: ");
     message += INFLUXDB_DATABASE;
@@ -735,6 +999,7 @@ void handleRoot() {
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     if ((type != WStype_TEXT) || (length != 1)) {
+        debug.println("Websocket: invalid type=" + String(type) + " len=" + String(length) + " data=" + String((char *)payload));
         return;
     }
     
@@ -763,6 +1028,10 @@ void wifi_setup() {
     
     debug.print("WiFi: connecting");
     WiFi.begin(WIFI_SSID, WIFI_PW);
+
+#ifdef TELEGRAM_TOKEN
+    secured_client.setTrustAnchors(&cert);
+#endif // TELEGRAM_TOKEN
 
     while (((ws = WiFi.status()) != WL_CONNECTED) && (connect_attempts < MAX_WIFI_CONNECT_ATTEMPTS)) {
         connect_attempts++;
@@ -796,6 +1065,10 @@ void wifi_setup() {
     debug.print("WiFi: connecting");
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PW);
+
+#ifdef TELEGRAM_TOKEN
+    secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+#endif // TELEGRAM_TOKEN
 
     while (((ws = WiFi.status()) != WL_CONNECTED) && (connect_attempts < MAX_WIFI_CONNECT_ATTEMPTS)) {
         connect_attempts++;
@@ -838,10 +1111,34 @@ void wifi_setup() {
 #ifdef ENABLE_GPIO_TEST
     server.on("/gpiotest", handleGpioTest);
 #endif // ENABLE_GPIO_TEST
-    
+
+#ifdef TELEGRAM_TOKEN
+    debug.print("WiFi: getting NTP time");
+    configTime(0, 0, "pool.ntp.org");
+    time_t now = time(nullptr);
+    while (now < 24 * 60 * 60) {
+        debug.print(".");
+        delay(100);
+        now = time(nullptr);
+    }
+    debug.println(" done!");
+    debug.println("WiFi: time is " + String(now));
+
+    debug.println("WiFi: initializing Telegram");
+    const String commands = F("["
+        "{\"command\":\"auto\", \"description\":\"Start automatic watering cycle\"},"
+        "{\"command\":\"confirm\", \"description\":\"Proceed with any menu inputs\"},"
+        "{\"command\":\"none\", \"description\":\"Proceed without menu input\"},"
+        "{\"command\":\"abort\", \"description\":\"Cancel any menu inputs\"}"
+    "]");
+    bot.setMyCommands(commands);
+    telegram_hello();
+#endif // TELEGRAM_TOKEN
+
     server.begin();
     MDNS.addService("http", "tcp", 80);
-    
+    MDNS.addService("http", "tcp", 81);
+
     socket.begin();
     socket.onEvent(webSocketEvent);
     
@@ -880,6 +1177,13 @@ void wifi_run() {
         runGpioTest(gpioTestState);
     }
 #endif // ENABLE_GPIO_TEST
+
+#ifdef TELEGRAM_TOKEN
+    if ((millis() - last_telegram_time) >= telegram_update_interval()) {
+        telegram_poll();
+        last_telegram_time = millis();
+    }
+#endif // TELEGRAM_TOKEN
 }
 
 #endif // PLATFORM_ESP
