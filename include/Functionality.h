@@ -45,10 +45,10 @@ Plants *get_plants(void);
 
 bool sm_is_idle(void);
 
-#ifdef TELEGRAM_TOKEN
+#if defined(TELEGRAM_TOKEN) || defined(MQTT_HOST)
 void sm_bot_abort(void);
 void sm_bot_start_auto(BoolField ferts, BoolField plants);
-#endif // TELEGRAM_TOKEN
+#endif // TELEGRAM_TOKEN || MQTT_HOST
 
 #endif // FUNCTION_CONTROL
 

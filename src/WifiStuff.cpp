@@ -62,7 +62,28 @@ UniversalTelegramBot bot(TELEGRAM_TOKEN, secured_client);
 unsigned long last_telegram_time = 0;
 String trusted_chat_ids[] = TRUSTED_IDS;
 
+enum telegram_state {
+    BOT_IDLE,
+    BOT_ASKED_FERT,
+    BOT_ASKED_PLANTS,
+    BOT_ASKED_CONFIRM
+};
+
+enum telegram_state bot_state = BOT_IDLE;
+String bot_lock = "";
+BoolField bot_plants(VALVE_COUNT - 1);
+BoolField bot_ferts(PUMP_COUNT);
+
 #endif // TELEGRAM_TOKEN
+
+#ifdef MQTT_HOST
+#include <PubSubClient.h>
+WiFiClient mqttClient;
+PubSubClient mqtt(mqttClient);
+unsigned long last_mqtt_reconnect_time = 0;
+BoolField mqtt_plants(VALVE_COUNT - 1);
+BoolField mqtt_ferts(PUMP_COUNT);
+#endif // MQTT_HOST
 
 UPDATE_WEB_SERVER server(80);
 WebSocketsServer socket = WebSocketsServer(81);
@@ -125,20 +146,13 @@ void wifi_broadcast_state_change(const char *s) {
         bot.sendMessage(trusted_chat_ids[n], "New state: " + String(s), "");
     }
 #endif // TELEGRAM_TOKEN
+
+#ifdef MQTT_HOST
+    mqtt.publish("giessomat", s);
+#endif // MQTT_HOST
 }
 
 #ifdef TELEGRAM_TOKEN
-enum telegram_state {
-    BOT_IDLE,
-    BOT_ASKED_FERT,
-    BOT_ASKED_PLANTS,
-    BOT_ASKED_CONFIRM
-};
-
-enum telegram_state bot_state = BOT_IDLE;
-String bot_lock = "";
-BoolField bot_plants(VALVE_COUNT - 1);
-BoolField bot_ferts(PUMP_COUNT);
 
 unsigned long telegram_update_interval() {
     if (bot_state == BOT_IDLE) {
@@ -351,6 +365,109 @@ void telegram_hello() {
     }
 }
 #endif // TELEGRAM_TOKEN
+
+#ifdef MQTT_HOST
+
+static void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    String ts(topic), ps;
+    for (unsigned int i = 0; i < length; i++) {
+        char c = payload[i];
+        ps += c;
+    }
+
+    debug.println("MQTT Rx @ " + ts + ": " + ps);
+
+    if (ts != "giessomat") {
+        debug.println("MQTT: invalid topic");
+        return;
+    }
+
+    if (ps == "abort") {
+        if (sm_is_idle()) {
+            debug.println("MQTT: nothing to abort");
+        } else {
+            sm_bot_abort();
+            debug.println("MQTT: user abort");
+        }
+    } else {
+        if (ps.substring(0, 4) != "auto") {
+            debug.println("MQTT: invalid payload");
+            return;
+        }
+
+        mqtt_ferts.clear();
+        mqtt_plants.clear();
+
+        String buff;
+        bool at_plants = false;
+        for (int i = 5; i < ps.length() + 1; i++) {
+            if ((i == ps.length()) || (ps[i] == ' ') || (ps[i] == ',')) {
+                if (buff != "none") {
+                    int n = buff.toInt() - 1;
+                    if (!at_plants) {
+                        mqtt_ferts.set(n);
+                    } else {
+                        mqtt_plants.set(n);
+                    }
+                }
+                buff = "";
+
+                if ((i < ps.length()) && (ps[i] == ' ')) {
+                    at_plants = true;
+                }
+            } else {
+                buff += ps[i];
+            }
+        }
+
+        String s = "MQTT: fertilizers:";
+        for (int i = 0; i < PUMP_COUNT; i++) {
+            if (mqtt_ferts.isSet(i)) {
+                s += " " + String(i + 1);
+            }
+        }
+        debug.println(s);
+
+        s = "MQTT: plants:";
+        for (int i = 0; i < (VALVE_COUNT - 1); i++) {
+            if (mqtt_plants.isSet(i)) {
+                s += " " + String(i + 1);
+            }
+        }
+        debug.println(s);
+
+        if (mqtt_plants.countSet() <= 0) {
+            debug.println("MQTT: no plants selected");
+            return;
+        }
+
+#ifdef FULLAUTO_MIN_PLANT_COUNT
+        if (mqtt_plants.countSet() < FULLAUTO_MIN_PLANT_COUNT) {
+            debug.println("MQTT: not enough plants selected");
+            return;
+        }
+#endif
+
+        sm_bot_start_auto(mqtt_ferts, mqtt_plants);
+    }
+}
+
+static void mqttReconnect() {
+    // Create a random client ID
+    String clientId = F("giessomat-");
+    clientId += String(random(0xffff), HEX);
+
+    // Attempt to connect
+#if defined(MQTT_USER) && defined(MQTT_PASS)
+    if (mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASS)) {
+#else
+    if (mqtt.connect(clientId.c_str())) {
+#endif
+        mqtt.subscribe("giessomat");
+    }
+}
+
+#endif // MQTT_HOST
 
 bool wifi_write_database(int duration, const char *type, int id) {
     bool success = false;
@@ -874,6 +991,18 @@ void handleRoot() {
     message += F("</p>\n");
 
     message += F("<p>\n");
+#ifdef MQTT_HOST
+    message += F("MQTT: ");
+    message += MQTT_HOST;
+    message += F(":");
+    message += String(MQTT_PORT);
+    message += F("\n");
+#else
+    message += F("MQTT not enabled!\n");
+#endif
+    message += F("</p>\n");
+
+    message += F("<p>\n");
 #ifdef ENABLE_INFLUXDB_LOGGING
     message += F("InfluxDB: ");
     message += INFLUXDB_DATABASE;
@@ -1135,6 +1264,12 @@ void wifi_setup() {
     telegram_hello();
 #endif // TELEGRAM_TOKEN
 
+#ifdef MQTT_HOST
+    debug.println("WiFi: initializing MQTT");
+    mqtt.setServer(MQTT_HOST, MQTT_PORT);
+    mqtt.setCallback(mqttCallback);
+#endif // MQTT_HOST
+
     server.begin();
     MDNS.addService("http", "tcp", 80);
     MDNS.addService("http", "tcp", 81);
@@ -1146,11 +1281,6 @@ void wifi_setup() {
 }
 
 void wifi_run() {
-    // reset ESP every 6h to be safe
-    if ((millis() >= (6UL * 60UL * 60UL * 1000UL)) && (sm_is_idle())) {
-        ESP.restart();
-    }
-
     if (!wifi_ok) {
         // nothing to handle
         return;
@@ -1184,6 +1314,15 @@ void wifi_run() {
         last_telegram_time = millis();
     }
 #endif // TELEGRAM_TOKEN
+
+#ifdef MQTT_HOST
+    if (!mqtt.connected() && ((millis() - last_mqtt_reconnect_time) >= MQTT_RECONNECT_INTERVAL)) {
+        last_mqtt_reconnect_time = millis();
+        mqttReconnect();
+    }
+
+    mqtt.loop();
+#endif // MQTT_HOST
 }
 
 #endif // PLATFORM_ESP

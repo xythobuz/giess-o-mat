@@ -173,7 +173,7 @@ void Statemachine::begin(void) {
     switch_to(init);
 }
 
-#ifdef TELEGRAM_TOKEN
+#if defined(TELEGRAM_TOKEN) || defined(MQTT_HOST)
 
 void Statemachine::bot_abort(void) {
     plants.abort();
@@ -244,7 +244,7 @@ void Statemachine::bot_start_auto(BoolField _ferts, BoolField _plants) {
     }
 }
 
-#endif // TELEGRAM_TOKEN
+#endif // TELEGRAM_TOKEN || MQTT_HOST
 
 void Statemachine::input(int n) {
     if (state == init) {

@@ -124,10 +124,10 @@ public:
     const char *getStateName(void);
     bool isIdle(void);
 
-#ifdef TELEGRAM_TOKEN
+#if defined(TELEGRAM_TOKEN) || defined(MQTT_HOST)
     void bot_abort(void);
     void bot_start_auto(BoolField ferts, BoolField plants);
-#endif // TELEGRAM_TOKEN
+#endif // TELEGRAM_TOKEN || MQTT_HOST
     
 private:
     void switch_to(States s);

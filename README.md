@@ -20,12 +20,28 @@ Then simply run the build for all supported configurations with platformio.
 You can of course also use pio to flash your targets.
 
 There is also an optional Telegram bot integration.
+
+## Optional Networking Interfaces
+
+There are both a Telegram bot implementation, as well as an MQTT client implemented in Giess-o-mat.
+Telegram allows control even from the Internet, but unfortunately polling for new messages is very time consuming.
+So I would not recommend enabling it if you also want to use the I2C UI.
+
 Register a new bot with the Telegram botfather and put the token into wifi.h as TELEGRAM_TOKEN.
 Compile and run the project, then send a message to the bot.
 Look for the chat ID in the log and put it into wifi.h in TRUSTED_IDS.
 
     echo '#define TELEGRAM_TOKEN "XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"' >> include/wifi.h
     echo '#define TRUSTED_IDS { "1234", "5678" }' >> include/wifi.h
+
+MQTT is far less resource intensive, but also does not provide a bridge to the Internet.
+Enable it like this.
+The last two parameters are optional.
+
+    echo '#define MQTT_HOST "192.168.0.100"' >> include/wifi.h
+    echo '#define MQTT_PORT 1883' >> include/wifi.h
+    echo '#define MQTT_USER "USERNAME"' >> include/wifi.h
+    echo '#define MQTT_PASS "PASSWORD"' >> include/wifi.h
 
 ## Hardware
 

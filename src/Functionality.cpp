@@ -76,7 +76,7 @@ bool sm_is_idle(void) {
     return sm.isIdle();
 }
 
-#ifdef TELEGRAM_TOKEN
+#if defined(TELEGRAM_TOKEN) || defined(MQTT_HOST)
 
 void sm_bot_abort(void) {
     sm.bot_abort();
@@ -86,7 +86,7 @@ void sm_bot_start_auto(BoolField ferts, BoolField plants) {
     sm.bot_start_auto(ferts, plants);
 }
 
-#endif // TELEGRAM_TOKEN
+#endif // TELEGRAM_TOKEN || MQTT_HOST
 
 #endif // FUNCTION_CONTROL
 
