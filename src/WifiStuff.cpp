@@ -71,19 +71,22 @@ enum telegram_state {
 
 enum telegram_state bot_state = BOT_IDLE;
 String bot_lock = "";
-BoolField bot_plants(VALVE_COUNT - 1);
-BoolField bot_ferts(PUMP_COUNT);
 
 #endif // TELEGRAM_TOKEN
 
 #ifdef MQTT_HOST
+
 #include <PubSubClient.h>
 WiFiClient mqttClient;
 PubSubClient mqtt(mqttClient);
 unsigned long last_mqtt_reconnect_time = 0;
-BoolField mqtt_plants(VALVE_COUNT - 1);
-BoolField mqtt_ferts(PUMP_COUNT);
+
 #endif // MQTT_HOST
+
+#if defined(TELEGRAM_TOKEN) || defined(MQTT_HOST)
+static BoolField bot_plants(VALVE_COUNT - 1);
+static BoolField bot_ferts(PUMP_COUNT);
+#endif // TELEGRAM_TOKEN || MQTT_HOST
 
 UPDATE_WEB_SERVER server(80);
 WebSocketsServer socket = WebSocketsServer(81);
@@ -112,12 +115,12 @@ Influxdb influx(INFLUXDB_HOST, INFLUXDB_PORT);
 
 void runGpioTest(bool state) {
     lastGpioTime = millis();
-    
+
     for (int i = 0; i < VALVE_COUNT; i++) {
         get_plants()->getValves()->setPin(i, state);
         delay(GPIO_TEST_DELAY);
     }
-    
+
     for (int i = 0; i < PUMP_COUNT; i++) {
         get_plants()->getPumps()->setPin(i, state);
         if (i < (PUMP_COUNT - 1)) {
@@ -129,12 +132,12 @@ void runGpioTest(bool state) {
 void handleGpioTest() {
     runningGpioTest = !runningGpioTest;
     gpioTestState = runningGpioTest;
-    
+
     String message = F("GPIOs turned ");
     message += runningGpioTest ? "on" : "off";
 
     server.send(200, "text/html", message);
-    
+
     runGpioTest(gpioTestState);
 }
 
@@ -148,7 +151,8 @@ void wifi_broadcast_state_change(const char *s) {
 #endif // TELEGRAM_TOKEN
 
 #ifdef MQTT_HOST
-    mqtt.publish("giessomat", s);
+    String payload = String("state: ") + s;
+    mqtt.publish("giessomat", payload.c_str());
 #endif // MQTT_HOST
 }
 
@@ -390,13 +394,22 @@ static void mqttCallback(char* topic, byte* payload, unsigned int length) {
             debug.println("MQTT: user abort");
         }
     } else {
+        if (ps.substring(0, 6) == "state:") {
+            return;
+        }
+
         if (ps.substring(0, 4) != "auto") {
             debug.println("MQTT: invalid payload");
             return;
         }
 
-        mqtt_ferts.clear();
-        mqtt_plants.clear();
+        if (!sm_is_idle()) {
+            debug.println("MQTT: machine is in use");
+            return;
+        }
+
+        bot_ferts.clear();
+        bot_plants.clear();
 
         String buff;
         bool at_plants = false;
@@ -405,9 +418,9 @@ static void mqttCallback(char* topic, byte* payload, unsigned int length) {
                 if (buff != "none") {
                     int n = buff.toInt() - 1;
                     if (!at_plants) {
-                        mqtt_ferts.set(n);
+                        bot_ferts.set(n);
                     } else {
-                        mqtt_plants.set(n);
+                        bot_plants.set(n);
                     }
                 }
                 buff = "";
@@ -422,7 +435,7 @@ static void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
         String s = "MQTT: fertilizers:";
         for (int i = 0; i < PUMP_COUNT; i++) {
-            if (mqtt_ferts.isSet(i)) {
+            if (bot_ferts.isSet(i)) {
                 s += " " + String(i + 1);
             }
         }
@@ -430,25 +443,25 @@ static void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
         s = "MQTT: plants:";
         for (int i = 0; i < (VALVE_COUNT - 1); i++) {
-            if (mqtt_plants.isSet(i)) {
+            if (bot_plants.isSet(i)) {
                 s += " " + String(i + 1);
             }
         }
         debug.println(s);
 
-        if (mqtt_plants.countSet() <= 0) {
+        if (bot_plants.countSet() <= 0) {
             debug.println("MQTT: no plants selected");
             return;
         }
 
 #ifdef FULLAUTO_MIN_PLANT_COUNT
-        if (mqtt_plants.countSet() < FULLAUTO_MIN_PLANT_COUNT) {
+        if (bot_plants.countSet() < FULLAUTO_MIN_PLANT_COUNT) {
             debug.println("MQTT: not enough plants selected");
             return;
         }
 #endif
 
-        sm_bot_start_auto(mqtt_ferts, mqtt_plants);
+        sm_bot_start_auto(bot_ferts, bot_plants);
     }
 }
 
@@ -521,60 +534,60 @@ void wifi_send_status_broadcast(void) {
     if (socket.connectedClients() <= 0) {
         return;
     }
-    
+
     String a = message_buffer_a ;
     String b = message_buffer_b;
     String c = message_buffer_c;
     String d = message_buffer_d;
-    
+
     a.replace("\"", "'");
     b.replace("\"", "'");
     c.replace("\"", "'");
     d.replace("\"", "'");
-    
+
     String ws = "{\n";
-    
+
     ws += "\"a\": \"" + a + "\",\n";
     ws += "\"b\": \"" + b + "\",\n";
     ws += "\"c\": \"" + c + "\",\n";
     ws += "\"d\": \"" + d + "\",\n";
-    
+
     ws += "\"state\": \"" + String(control_state_name()) + "\",\n";
-    
+
     ws += F("\"valves\": [ ");
     for (int i = 0; i < VALVE_COUNT; i++) {
         ws += "\"";
         ws += get_plants()->getValves()->getPin(i) ? "1" : "0";
         ws += "\"";
-        
+
         if (i < (VALVE_COUNT - 1)) {
             ws += ", ";
         }
     }
     ws += " ],\n";
-    
+
     ws += F("\"pumps\": [ ");
     for (int i = 0; i < PUMP_COUNT; i++) {
         ws += "\"";
         ws += get_plants()->getPumps()->getPin(i) ? "1" : "0";
         ws += "\"";
-        
+
         if (i < (PUMP_COUNT - 1)) {
             ws += ", ";
         }
     }
     ws += " ],\n";
-    
+
     ws += F("\"switches\": [ ");
     for (int i = 0; i < SWITCH_COUNT; i++) {
         bool v = get_plants()->getSwitches()->getPin(i);
-        
+
 #ifdef INVERT_SENSOR_BOTTOM
         if (i == 0) {
             v = !v;
         }
 #endif // INVERT_SENSOR_BOTTOM
-        
+
 #ifdef INVERT_SENSOR_TOP
         if (i == 1) {
             v = !v;
@@ -584,7 +597,7 @@ void wifi_send_status_broadcast(void) {
         ws += "\"";
         ws += v ? "1" : "0";
         ws += "\"";
-        
+
         if (i < (SWITCH_COUNT - 1)) {
             ws += ", ";
         }
@@ -614,7 +627,7 @@ void wifi_send_status_broadcast(void) {
         }
     }
     ws += " ],\n";
-    
+
     ws += "\"switchstate\": \"";
     Plants::Waterlevel wl = get_plants()->getWaterlevel();
     if (wl == Plants::empty) {
@@ -628,7 +641,7 @@ void wifi_send_status_broadcast(void) {
     }
     ws += "\"\n";
     ws += "}";
-    
+
     wifi_send_websocket(ws);
 }
 
@@ -636,13 +649,72 @@ void wifi_send_websocket(String s) {
     socket.broadcastTXT(s);
 }
 
+#ifdef ARDUINO_ARCH_ESP32
+
+#include <rom/rtc.h>
+
+// https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/ResetReason/ResetReason.ino
+static const char *str_reset_reason(int reason) {
+    switch (reason) {
+    case 1:
+        return "POWERON_RESET";
+
+    case 3:
+        return "SW_RESET";
+
+    case 4:
+        return "OWDT_RESET";
+
+    case 5:
+        return "DEEPSLEEP_RESET";
+
+    case 6:
+        return "SDIO_RESET";
+
+    case 7:
+        return "TG0WDT_SYS_RESET";
+
+    case 8:
+        return "TG1WDT_SYS_RESET";
+
+    case 9:
+        return "RTCWDT_SYS_RESET";
+
+    case 10:
+        return "INTRUSION_RESET";
+
+    case 11:
+        return "TGWDT_CPU_RESET";
+
+    case 12:
+        return "SW_CPU_RESET";
+
+    case 13:
+        return "RTCWDT_CPU_RESET";
+
+    case 14:
+        return "EXT_CPU_RESET";
+
+    case 15:
+        return "RTCWDT_BROWN_OUT_RESET";
+
+    case 16:
+        return "RTCWDT_RTC_RESET";
+
+    default:
+        return "NO_MEAN";
+    }
+}
+
+#endif // ARDUINO_ARCH_ESP32
+
 void handleRoot() {
     String message = F("<!DOCTYPE html>\n");
     message += F("<html><head>\n");
     message += F("<meta charset='utf-8'/>\n");
     message += F("<meta name='viewport' content='width=device-width, initial-scale=1'/>\n");
     message += F("<title>Gieß-o-mat</title>\n");
-    
+
     message += F("<style type='text/css'>\n");
     message += F(".head {\n");
     message += F("text-align: center;\n");
@@ -653,7 +725,7 @@ void handleRoot() {
     message += F("max-width: 1200px;\n");
     message += F("margin: auto;\n");
     message += F("}\n");
-    
+
     message += F(".ui {\n");
     message += F("width: max-content;\n");
     message += F("height: max-content;\n");
@@ -661,7 +733,7 @@ void handleRoot() {
     message += F("padding: 0 1.0em;\n");
     message += F("border: 1px dashed black;\n");
     message += F("}\n");
-    
+
     message += F(".io {\n");
     message += F("width: max-content;\n");
     message += F("height: max-content;\n");
@@ -670,7 +742,7 @@ void handleRoot() {
     message += F("border: 1px dashed black;\n");
     message += F("font-family: monospace;\n");
     message += F("}\n");
-    
+
     message += F(".ioelem {\n");
     message += F("width: max-content;\n");
     message += F("border: 1px solid black;\n");
@@ -678,7 +750,7 @@ void handleRoot() {
     message += F("padding: 1em;\n");
     message += F("margin: 0.5em;\n");
     message += F("}\n");
-    
+
     message += F(".info {\n");
     message += F("width: max-content;\n");
     message += F("height: max-content;\n");
@@ -686,7 +758,7 @@ void handleRoot() {
     message += F("border: 1px dashed black;\n");
     message += F("font-family: monospace;\n");
     message += F("}\n");
-    
+
     message += F(".log {\n");
     message += F("max-height: 300px;\n");
     message += F("padding: 0 1.0em;\n");
@@ -698,11 +770,11 @@ void handleRoot() {
     message += F("overflow-y: scroll;\n");
     message += F("word-break: break-all;\n");
     message += F("}\n");
-    
+
     message += F("#logbuf {\n");
     message += F("white-space: break-spaces;\n");
     message += F("}\n");
-    
+
     message += F(".pad {\n");
     message += F("background: black;\n");
     message += F("border: 3px solid black;\n");
@@ -712,7 +784,7 @@ void handleRoot() {
     message += F("margin-left: auto;\n");
     message += F("margin-right: auto;\n");
     message += F("}\n");
-    
+
     message += F(".pad input {\n");
     message += F("background: #fff0cf;\n");
     message += F("border-radius: 6px;\n");
@@ -722,7 +794,7 @@ void handleRoot() {
     message += F("padding: 0.5em 1em;\n");
     message += F("margin: 0.5em;\n");
     message += F("}\n");
-    
+
     // https://codepen.io/hawkz/pres/RpPaGK
     message += F(".lcd {\n");
     //message += F("background: #9ea18c;\n");
@@ -742,7 +814,7 @@ void handleRoot() {
     message += F("margin-left: auto;\n");
     message += F("margin-right: auto;\n");
     message += F("}\n");
-    
+
     message += F("#state {\n");
     message += F("text-align: center;\n");
     message += F("}\n");
@@ -788,7 +860,7 @@ void handleRoot() {
     message += message_buffer_c + '\n';
     message += message_buffer_d + '\n';
     message += F("</pre>\n");
-    
+
     message += F("<form class='pad'>\n");
     message += F("<input type='button' value='1'>");
     message += F("<input type='button' value='2'>");
@@ -806,15 +878,15 @@ void handleRoot() {
     message += F("<input type='button' value='0'>");
     message += F("<input type='button' value='#'>");
     message += F("</form>\n");
-    
+
     message += F("<p id='state'>\n");
     message += F("State: ");
     message += control_state_name();
     message += F("</p></div>\n");
-    
+
     message += F("<div class='io'>\n");
     message += F("Switches: <span id='switchstate'>");
-    
+
     Plants::Waterlevel wl = get_plants()->getWaterlevel();
     if (wl == Plants::empty) {
         message += F("tank empty");
@@ -826,24 +898,24 @@ void handleRoot() {
         message += F("invalid sensor state");
     }
     message += F("</span>");
-    
+
     message += F("<div class='container'>\n");
     for (int i = 0; i < SWITCH_COUNT; i++) {
         message += F("<div class='ioelem switch' style='background-color: ");
         bool v = get_plants()->getSwitches()->getPin(i);
-        
+
 #ifdef INVERT_SENSOR_BOTTOM
         if (i == 0) {
             v = !v;
         }
 #endif // INVERT_SENSOR_BOTTOM
-        
+
 #ifdef INVERT_SENSOR_TOP
         if (i == 1) {
             v = !v;
         }
 #endif // INVERT_SENSOR_TOP
-        
+
         if (v) {
             message += F("red");
         } else {
@@ -869,7 +941,7 @@ void handleRoot() {
         message += F("</div>");
     }
     message += F("</div><hr>\n");
-    
+
     message += F("Valves:\n");
     message += F("<div class='container'>\n");
     for (int i = 0; i < VALVE_COUNT; i++) {
@@ -884,7 +956,7 @@ void handleRoot() {
         message += F("</div>");
     }
     message += F("</div><hr>\n");
-    
+
     message += F("Pumps:\n");
     message += F("<div class='container'>\n");
     for (int i = 0; i < PUMP_COUNT; i++) {
@@ -918,7 +990,7 @@ void handleRoot() {
     message += F("Green means valve is closed / pump is off / switch is not submersed.\n");
     message += F("<br>\n");
     message += F("Red means valve is open / pump is running / switch is submersed.</div>\n");
-    
+
     message += F("<div class='info'><p>\n");
     message += F("Version: ");
     message += FIRMWARE_VERSION;
@@ -937,7 +1009,7 @@ void handleRoot() {
     message += F("\n</p>\n");
 
 #if defined(ARDUINO_ARCH_ESP8266)
-    
+
     message += F("\n<p>\n");
     message += F("Reset reason: ");
     message += ESP.getResetReason();
@@ -960,12 +1032,17 @@ void handleRoot() {
         message += (ESP.getFlashChipSize());
         message += F(") does not match!");
     }
-    
+
     message += F("\n</p>\n");
-    
+
 #elif defined(ARDUINO_ARCH_ESP32)
 
     message += F("\n<p>\n");
+    message += F("Reset reason: ");
+    message += str_reset_reason(rtc_get_reset_reason(0));
+    message += F(" ");
+    message += str_reset_reason(rtc_get_reset_reason(1));
+    message += F("\n<br>\n");
     message += F("Free heap: ");
     message += String(ESP.getFreeHeap() / 1024.0);
     message += F("k\n<br>\n");
@@ -975,7 +1052,7 @@ void handleRoot() {
     message += F("Flash chip size: ");
     message += String(ESP.getFlashChipSize() / 1024.0);
     message += F("k\n</p>\n");
-    
+
 #endif
 
     message += F("<p>\n");
@@ -1019,18 +1096,18 @@ void handleRoot() {
     message += F("<p>Try <a href='/update'>/update</a> for OTA firmware updates!</p>\n");
     message += F("<p>Made by <a href='https://xythobuz.de'>xythobuz</a></p>\n");
     message += F("<p><a href='https://git.xythobuz.de/thomas/giess-o-mat'>Project Repository</a></p>\n");
-    
+
 #ifdef ENABLE_GPIO_TEST
     message += F("<p><a href='/gpiotest'>GPIO Test</a></p>\n");
 #endif // ENABLE_GPIO_TEST
-    
+
     message += F("</div></div>\n");
-    
+
     message += F("<div class='log'><pre id='logbuf'>\n");
     message += debug.getBuffer();
     message += F("</pre></div>\n");
     message += F("</body>\n");
-    
+
     message += F("<script type='text/javascript'>\n");
     message += F("var socket = new WebSocket('ws://' + window.location.hostname + ':81');\n");
     message += F("socket.onmessage = function(e) {\n");
@@ -1051,7 +1128,7 @@ void handleRoot() {
     message += F(    "lcd[0].innerHTML = str;\n");
     message += F(    "var state = document.getElementById('state');\n");
     message += F(    "state.innerHTML = \"State: \" + msg.state;\n");
-    
+
     message += F(    "for (let i = 0; i < ");
     message += String(VALVE_COUNT);
     message += F("; i++) {\n");
@@ -1062,7 +1139,7 @@ void handleRoot() {
     message += F(           "valves[i].style = 'background-color: red;';\n");
     message += F(       "}\n");
     message += F(    "}\n");
-    
+
     message += F(    "for (let i = 0; i < ");
     message += String(PUMP_COUNT);
     message += F("; i++) {\n");
@@ -1073,7 +1150,7 @@ void handleRoot() {
     message += F(           "pumps[i].style = 'background-color: red;';\n");
     message += F(       "}\n");
     message += F(    "}\n");
-    
+
     message += F(    "for (let i = 0; i < ");
     message += String(SWITCH_COUNT);
     message += F("; i++) {\n");
@@ -1106,13 +1183,13 @@ void handleRoot() {
     message += F(           "kickstart[i].style = 'background-color: red;';\n");
     message += F(       "}\n");
     message += F(    "}\n");
-    
+
     message += F(    "var switchstate = document.getElementById('switchstate');\n");
     message += F(    "switchstate.innerHTML = msg.switchstate;\n");
     message += F("};\n");
     message += F("var hist = document.getElementsByClassName('log')[0];\n");
     message += F("hist.scrollTop = hist.scrollHeight;\n");
-    
+
     message += F("var buttons = document.getElementsByTagName('input');\n");
     message += F("for (let i = 0; i < buttons.length; i++) {\n");
     message += F(    "buttons[i].addEventListener('click', updateButton);\n");
@@ -1128,10 +1205,10 @@ void handleRoot() {
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     if ((type != WStype_TEXT) || (length != 1)) {
-        debug.println("Websocket: invalid type=" + String(type) + " len=" + String(length) + " data=" + String((char *)payload));
+        debug.println("Websocket: invalid type=" + String(type) + " len=" + String(length) /* + " data=" + String((char *)payload) */ );
         return;
     }
-    
+
     char c = payload[0];
     if ((c >= '0') && (c <= '9')) {
         control_act_input(c - '0');
@@ -1154,7 +1231,7 @@ void wifi_setup() {
     debug.println("WiFi: initializing");
     WiFi.hostname(hostname);
     WiFi.mode(WIFI_STA);
-    
+
     debug.print("WiFi: connecting");
     WiFi.begin(WIFI_SSID, WIFI_PW);
 
@@ -1170,14 +1247,14 @@ void wifi_setup() {
     }
     debug.println();
     debug.println(String("WiFi: status=") + String(WiFi.status()));
-    
+
 #elif defined(ARDUINO_ARCH_ESP32)
 
     // Set hostname workaround
     debug.println("WiFi: set hostname");
     WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(hostname.c_str());
-    
+
     // Workaround for WiFi connecting only every 2nd reset
     // https://github.com/espressif/arduino-esp32/issues/2501#issuecomment-513602522
     debug.println("WiFi: connection work-around");
@@ -1207,7 +1284,7 @@ void wifi_setup() {
     }
     debug.println();
     debug.println(String("WiFi: status=") + String(WiFi.status()));
-    
+
     // Set hostname workaround
     debug.println("WiFi: set hostname work-around");
     WiFi.setHostname(hostname.c_str());
@@ -1236,7 +1313,7 @@ void wifi_setup() {
     MDNS.begin(hostname.c_str());
     updater.setup(&server);
     server.on("/", handleRoot);
-    
+
 #ifdef ENABLE_GPIO_TEST
     server.on("/gpiotest", handleGpioTest);
 #endif // ENABLE_GPIO_TEST
@@ -1276,7 +1353,7 @@ void wifi_setup() {
 
     socket.begin();
     socket.onEvent(webSocketEvent);
-    
+
     debug.println("WiFi: setup done");
 }
 
@@ -1290,17 +1367,17 @@ void wifi_run() {
         last_server_handle_time = millis();
         server.handleClient();
         socket.loop();
-        
+
 #ifdef ARDUINO_ARCH_ESP8266
         MDNS.update();
 #endif // ARDUINO_ARCH_ESP8266
     }
-    
+
     if ((millis() - last_websocket_update_time) >= WEBSOCKET_UPDATE_INTERVAL) {
         last_websocket_update_time = millis();
         wifi_send_status_broadcast();
     }
-    
+
 #ifdef ENABLE_GPIO_TEST
     if (runningGpioTest && ((millis() - lastGpioTime) >= GPIO_TEST_INTERVAL)) {
         gpioTestState = !gpioTestState;

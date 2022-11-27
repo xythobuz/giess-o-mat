@@ -82,7 +82,7 @@ void sm_bot_abort(void) {
     sm.bot_abort();
 }
 
-void sm_bot_start_auto(BoolField ferts, BoolField plants) {
+void sm_bot_start_auto(BoolField &ferts, BoolField &plants) {
     sm.bot_start_auto(ferts, plants);
 }
 
@@ -570,7 +570,7 @@ void write_to_all(const char *a, const char *b,
 
         Wire.endTransmission();
     }
-    
+
     Wire.beginTransmission(OWN_I2C_ADDRESS);
     Wire.write(0x04); // button command
     Wire.write((int8_t)num_input);

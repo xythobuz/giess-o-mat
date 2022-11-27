@@ -181,9 +181,20 @@ void Statemachine::bot_abort(void) {
     switch_to(auto_done);
 }
 
-void Statemachine::bot_start_auto(BoolField _ferts, BoolField _plants) {
-    selected_ferts = _ferts;
-    selected_plants = _plants;
+void Statemachine::bot_start_auto(BoolField &_ferts, BoolField &_plants) {
+    selected_ferts.clear();
+    for (int i = 0; i < plants.countFertilizers(); i++) {
+        if (_ferts.isSet(i)) {
+            selected_ferts.set(i);
+        }
+    }
+
+    selected_plants.clear();
+    for (int i = 0; i < plants.countPlants(); i++) {
+        if (_plants.isSet(i)) {
+            selected_plants.set(i);
+        }
+    }
 
     // check if we need to run fertilizers
     if (selected_ferts.countSet() > 0) {

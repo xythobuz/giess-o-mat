@@ -126,7 +126,7 @@ public:
 
 #if defined(TELEGRAM_TOKEN) || defined(MQTT_HOST)
     void bot_abort(void);
-    void bot_start_auto(BoolField ferts, BoolField plants);
+    void bot_start_auto(BoolField &ferts, BoolField &plants);
 #endif // TELEGRAM_TOKEN || MQTT_HOST
     
 private:

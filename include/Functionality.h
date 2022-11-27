@@ -47,7 +47,7 @@ bool sm_is_idle(void);
 
 #if defined(TELEGRAM_TOKEN) || defined(MQTT_HOST)
 void sm_bot_abort(void);
-void sm_bot_start_auto(BoolField ferts, BoolField plants);
+void sm_bot_start_auto(BoolField &ferts, BoolField &plants);
 #endif // TELEGRAM_TOKEN || MQTT_HOST
 
 #endif // FUNCTION_CONTROL
