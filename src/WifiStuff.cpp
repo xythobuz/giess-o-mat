@@ -49,18 +49,17 @@
 #ifdef TELEGRAM_TOKEN
 
 #include <WiFiClientSecure.h>
-#include <UniversalTelegramBot.h>
+#include <AsyncTelegram2.h>
 
 //#define TELEGRAM_LOG_TIMINGS
 
 #if defined(ARDUINO_ARCH_ESP8266)
-X509List cert(TELEGRAM_CERTIFICATE_ROOT);
+X509List cert(telegram_cert);
 #endif
 
 WiFiClientSecure secured_client;
-UniversalTelegramBot bot(TELEGRAM_TOKEN, secured_client);
-unsigned long last_telegram_time = 0;
-String trusted_chat_ids[] = TRUSTED_IDS;
+AsyncTelegram2 bot(secured_client);
+int64_t trusted_chat_ids[] = TRUSTED_IDS;
 
 enum telegram_state {
     BOT_IDLE,
@@ -70,7 +69,7 @@ enum telegram_state {
 };
 
 enum telegram_state bot_state = BOT_IDLE;
-String bot_lock = "";
+int64_t bot_lock = 0;
 
 #endif // TELEGRAM_TOKEN
 
@@ -146,7 +145,7 @@ void handleGpioTest() {
 void wifi_broadcast_state_change(const char *s) {
 #ifdef TELEGRAM_TOKEN
     for (int n = 0; n < (sizeof(trusted_chat_ids) / sizeof(trusted_chat_ids[0])); n++) {
-        bot.sendMessage(trusted_chat_ids[n], "New state: " + String(s), "");
+        bot.sendTo(trusted_chat_ids[n], "New state: " + String(s));
     }
 #endif // TELEGRAM_TOKEN
 
@@ -158,14 +157,6 @@ void wifi_broadcast_state_change(const char *s) {
 
 #ifdef TELEGRAM_TOKEN
 
-unsigned long telegram_update_interval() {
-    if (bot_state == BOT_IDLE) {
-        return TELEGRAM_UPDATE_INTERVAL_SLOW;
-    } else {
-        return TELEGRAM_UPDATE_INTERVAL_FAST;
-    }
-}
-
 String telegram_help() {
     String s = "Usage:\n";
     s += "Send /auto and follow prompts.\n";
@@ -175,68 +166,68 @@ String telegram_help() {
     return s;
 }
 
-void telegram_handle_message(int message_id) {
+void telegram_handle_message(TBMessage &msg) {
     if (!sm_is_idle()) {
         debug.println("Telegram: message while machine in use");
 
-        if (bot.messages[message_id].text == "/abort") {
+        if (msg.text == "/abort") {
             sm_bot_abort();
-            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted current cycle!", "");
+            bot.sendTo(msg.chatId, "Aborted current cycle!");
         } else {
-            bot.sendMessage(bot.messages[message_id].chat_id, "Machine is already in use.\nPlease try again later.", "");
+            bot.sendTo(msg.chatId, "Machine is already in use.\nPlease try again later.");
         }
 
         return;
     }
 
-    if ((bot_state == BOT_IDLE) && (bot_lock == "")) {
-        bot_lock = bot.messages[message_id].chat_id;
+    if ((bot_state == BOT_IDLE) && (bot_lock == 0)) {
+        bot_lock = msg.chatId;
         debug.println("Telegram: locked to " + bot_lock);
     }
 
-    if (bot_lock != bot.messages[message_id].chat_id) {
-        debug.println("Telegram: bot locked. abort for chat " + bot.messages[message_id].chat_id);
-        bot.sendMessage(bot.messages[message_id].chat_id, "Bot is already in use.\nPlease try again later.", "");
+    if (bot_lock != msg.chatId) {
+        debug.println("Telegram: bot locked. abort for chat " + msg.chatId);
+        bot.sendTo(msg.chatId, "Bot is already in use.\nPlease try again later.");
         return;
     }
 
     if (bot_state == BOT_IDLE) {
-        if (bot.messages[message_id].text == "/auto") {
+        if (msg.text == "/auto") {
             String s = "Please enter fertilizer numbers.\n";
             s += "Valid numbers: 1 to " + String(PUMP_COUNT) + "\n";
             s += "Send /none to skip.\n";
             s += "Send /abort to cancel.";
             bot_ferts.clear();
             bot_state = BOT_ASKED_FERT;
-            bot.sendMessage(bot.messages[message_id].chat_id, s, "");
-        } else if (bot.messages[message_id].text == "/abort") {
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "Nothing to abort.", "");
+            bot.sendTo(msg.chatId, s);
+        } else if (msg.text == "/abort") {
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "Nothing to abort.");
         } else {
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, telegram_help(), "");
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, telegram_help());
         }
     } else if (bot_state == BOT_ASKED_FERT) {
-        if (bot.messages[message_id].text == "/abort") {
+        if (msg.text == "/abort") {
             bot_state = BOT_IDLE;
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted.", "");
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "Aborted.");
             return;
-        } else if (bot.messages[message_id].text != "/none") {
+        } else if (msg.text != "/none") {
             String buff;
-            for (int i = 0; i < bot.messages[message_id].text.length() + 1; i++) {
-                if ((i == bot.messages[message_id].text.length()) || (bot.messages[message_id].text[i] == ' ')) {
+            for (int i = 0; i < msg.text.length() + 1; i++) {
+                if ((i == msg.text.length()) || (msg.text[i] == ' ')) {
                     if (buff.length() > 0) {
                         int n = buff.toInt() - 1;
                         buff = "";
                         bot_ferts.set(n);
                     }
-                } else if ((bot.messages[message_id].text[i] >= '0') && (bot.messages[message_id].text[i] <= '9')) {
-                    buff += bot.messages[message_id].text[i];
+                } else if ((msg.text[i] >= '0') && (msg.text[i] <= '9')) {
+                    buff += msg.text[i];
                 } else {
                     bot_state = BOT_IDLE;
-                    bot_lock = "";
-                    bot.sendMessage(bot.messages[message_id].chat_id, "Invalid input.\nAborted.", "");
+                    bot_lock = 0;
+                    bot.sendTo(msg.chatId, "Invalid input.\nAborted.");
                     return;
                 }
             }
@@ -247,45 +238,45 @@ void telegram_handle_message(int message_id) {
         s += "Send /abort to cancel.";
         bot_plants.clear();
         bot_state = BOT_ASKED_PLANTS;
-        bot.sendMessage(bot.messages[message_id].chat_id, s, "");
+        bot.sendTo(msg.chatId, s);
     } else if (bot_state == BOT_ASKED_PLANTS) {
-        if (bot.messages[message_id].text == "/abort") {
+        if (msg.text == "/abort") {
             bot_state = BOT_IDLE;
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted.", "");
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "Aborted.");
             return;
         }
 
         String buff;
-        for (int i = 0; i < bot.messages[message_id].text.length() + 1; i++) {
-            if ((i == bot.messages[message_id].text.length()) || (bot.messages[message_id].text[i] == ' ')) {
+        for (int i = 0; i < msg.text.length() + 1; i++) {
+            if ((i == msg.text.length()) || (msg.text[i] == ' ')) {
                 if (buff.length() > 0) {
                     int n = buff.toInt() - 1;
                     buff = "";
                     bot_plants.set(n);
                 }
-            } else if ((bot.messages[message_id].text[i] >= '0') && (bot.messages[message_id].text[i] <= '9')) {
-                buff += bot.messages[message_id].text[i];
+            } else if ((msg.text[i] >= '0') && (msg.text[i] <= '9')) {
+                buff += msg.text[i];
             } else {
                 bot_state = BOT_IDLE;
-                bot_lock = "";
-                bot.sendMessage(bot.messages[message_id].chat_id, "Invalid input.\nAborted.", "");
+                bot_lock = 0;
+                bot.sendTo(msg.chatId, "Invalid input.\nAborted.");
                 return;
             }
         }
 
         if (bot_plants.countSet() <= 0) {
             bot_state = BOT_IDLE;
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "No plants selected.\nAborted.", "");
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "No plants selected.\nAborted.");
             return;
         }
 
 #ifdef FULLAUTO_MIN_PLANT_COUNT
         if (bot_plants.countSet() < FULLAUTO_MIN_PLANT_COUNT) {
             bot_state = BOT_IDLE;
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "Select at least " + String(FULLAUTO_MIN_PLANT_COUNT) + " plants.\nAborted.", "");
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "Select at least " + String(FULLAUTO_MIN_PLANT_COUNT) + " plants.\nAborted.");
             return;
         }
 #endif
@@ -304,46 +295,46 @@ void telegram_handle_message(int message_id) {
         }
         s += "\nOk? Send /begin to start or /abort to cancel.";
         bot_state = BOT_ASKED_CONFIRM;
-        bot.sendMessage(bot.messages[message_id].chat_id, s, "");
+        bot.sendTo(msg.chatId, s);
     } else if (bot_state == BOT_ASKED_CONFIRM) {
-        if (bot.messages[message_id].text == "/abort") {
+        if (msg.text == "/abort") {
             bot_state = BOT_IDLE;
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "Aborted.", "");
-        } else if (bot.messages[message_id].text == "/begin") {
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "Aborted.");
+        } else if (msg.text == "/begin") {
             bot_state = BOT_IDLE;
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "Auto watering cycle started.", "");
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "Auto watering cycle started.");
             sm_bot_start_auto(bot_ferts, bot_plants);
         } else {
             bot_state = BOT_IDLE;
-            bot_lock = "";
-            bot.sendMessage(bot.messages[message_id].chat_id, "Unknown message.\nAborted.", "");
+            bot_lock = 0;
+            bot.sendTo(msg.chatId, "Unknown message.\nAborted.");
         }
     } else {
         debug.println("Telegram: invalid state");
         bot_state = BOT_IDLE;
-        bot_lock = "";
-        bot.sendMessage(bot.messages[message_id].chat_id, "Internal error.\nPlease try again.", "");
+        bot_lock = 0;
+        bot.sendTo(msg.chatId, "Internal error.\nPlease try again.");
     }
 }
 
-void telegram_handler(int message_id) {
-    debug.println("Telegram: rx " + bot.messages[message_id].chat_id + " \"" + bot.messages[message_id].text + "\"");
+void telegram_handler(TBMessage &msg) {
+    debug.println("Telegram: rx " + String((long int)msg.chatId) + " \"" + msg.text + "\"");
 
     bool found = false;
     for (int n = 0; n < (sizeof(trusted_chat_ids) / sizeof(trusted_chat_ids[0])); n++) {
-        if (trusted_chat_ids[n] == bot.messages[message_id].chat_id) {
+        if (trusted_chat_ids[n] == msg.chatId) {
             found = true;
             break;
         }
     }
     if (!found) {
-        bot.sendMessage(bot.messages[message_id].chat_id, "Sorry, not authorized!", "");
+        bot.sendTo(msg.chatId, "Sorry, not authorized!");
         return;
     }
 
-    telegram_handle_message(message_id);
+    telegram_handle_message(msg);
 }
 
 void telegram_poll() {
@@ -351,10 +342,9 @@ void telegram_poll() {
     unsigned long start = millis();
 #endif // TELEGRAM_LOG_TIMINGS
 
-    while (int count = bot.getUpdates(bot.last_message_received + 1)) {
-        for (int i = 0; i < count; i++) {
-            telegram_handler(i);
-        }
+    TBMessage msg;
+    while (bot.getNewMessage(msg)) {
+        telegram_handler(msg);
     }
 
 #ifdef TELEGRAM_LOG_TIMINGS
@@ -365,7 +355,7 @@ void telegram_poll() {
 
 void telegram_hello() {
     for (int n = 0; n < (sizeof(trusted_chat_ids) / sizeof(trusted_chat_ids[0])); n++) {
-        bot.sendMessage(trusted_chat_ids[n], "Giess-o-mat v" FIRMWARE_VERSION " initialized.\nSend /auto to begin.", "");
+        bot.sendTo(trusted_chat_ids[n], "Giess-o-mat v" FIRMWARE_VERSION " initialized.\nSend /auto to begin.");
     }
 }
 #endif // TELEGRAM_TOKEN
@@ -1058,9 +1048,7 @@ void handleRoot() {
     message += F("<p>\n");
 #ifdef TELEGRAM_TOKEN
     message += F("Telegram: ");
-    message += TELEGRAM_UPDATE_INTERVAL_SLOW;
-    message += F("ms / ");
-    message += TELEGRAM_UPDATE_INTERVAL_FAST;
+    message += TELEGRAM_UPDATE_INTERVAL;
     message += F("ms\n");
 #else
     message += F("Telegram bot not enabled!\n");
@@ -1273,7 +1261,7 @@ void wifi_setup() {
     WiFi.begin(WIFI_SSID, WIFI_PW);
 
 #ifdef TELEGRAM_TOKEN
-    secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+    secured_client.setCACert(telegram_cert);
 #endif // TELEGRAM_TOKEN
 
     while (((ws = WiFi.status()) != WL_CONNECTED) && (connect_attempts < MAX_WIFI_CONNECT_ATTEMPTS)) {
@@ -1330,14 +1318,16 @@ void wifi_setup() {
     debug.println(" done!");
     debug.println("WiFi: time is " + String(now));
 
-    debug.println("WiFi: initializing Telegram");
-    const String commands = F("["
-        "{\"command\":\"auto\", \"description\":\"Start automatic watering cycle\"},"
-        "{\"command\":\"confirm\", \"description\":\"Proceed with any menu inputs\"},"
-        "{\"command\":\"none\", \"description\":\"Proceed without menu input\"},"
-        "{\"command\":\"abort\", \"description\":\"Cancel any menu inputs\"}"
-    "]");
-    bot.setMyCommands(commands);
+    debug.print("WiFi: initializing Telegram... ");
+    bot.setUpdateTime(TELEGRAM_UPDATE_INTERVAL);
+    bot.setTelegramToken(TELEGRAM_TOKEN);
+    bot.begin() ? debug.println("Ok") : debug.println("Error");
+
+    bot.setMyCommands("auto", "Start automatic watering cycle");
+    bot.setMyCommands("confirm", "Proceed with any menu inputs");
+    bot.setMyCommands("none", "Proceed without menu input");
+    bot.setMyCommands("abort", "Cancel any menu inputs");
+
     telegram_hello();
 #endif // TELEGRAM_TOKEN
 
@@ -1371,6 +1361,10 @@ void wifi_run() {
 #ifdef ARDUINO_ARCH_ESP8266
         MDNS.update();
 #endif // ARDUINO_ARCH_ESP8266
+
+#ifdef TELEGRAM_TOKEN
+        telegram_poll();
+#endif // TELEGRAM_TOKEN
     }
 
     if ((millis() - last_websocket_update_time) >= WEBSOCKET_UPDATE_INTERVAL) {
@@ -1384,13 +1378,6 @@ void wifi_run() {
         runGpioTest(gpioTestState);
     }
 #endif // ENABLE_GPIO_TEST
-
-#ifdef TELEGRAM_TOKEN
-    if ((millis() - last_telegram_time) >= telegram_update_interval()) {
-        telegram_poll();
-        last_telegram_time = millis();
-    }
-#endif // TELEGRAM_TOKEN
 
 #ifdef MQTT_HOST
     if (!mqtt.connected() && ((millis() - last_mqtt_reconnect_time) >= MQTT_RECONNECT_INTERVAL)) {

@@ -32,7 +32,7 @@ Compile and run the project, then send a message to the bot.
 Look for the chat ID in the log and put it into wifi.h in TRUSTED_IDS.
 
     echo '#define TELEGRAM_TOKEN "XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"' >> include/wifi.h
-    echo '#define TRUSTED_IDS { "1234", "5678" }' >> include/wifi.h
+    echo '#define TRUSTED_IDS { 1234, 5678 }' >> include/wifi.h
 
 MQTT is far less resource intensive, but also does not provide a bridge to the Internet.
 Enable it like this.
